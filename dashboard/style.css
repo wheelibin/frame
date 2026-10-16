@@ -1,0 +1,312 @@
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+/* Modern look built entirely from gradients, shadows and radius -- no backdrop-filter
+   (frosted glass blur), which needs Chrome 76+ and this WebView is ~44. Depth comes from
+   colored glow shadows and layered background gradients instead of actual blur. */
+
+/* Inter, self-hosted -- not linked straight to Google Fonts' CDN. Same reasoning as the
+   calendar/weather fetch-then-serve-locally pattern elsewhere in this project: this
+   WebView is missing some root CAs (confirmed earlier against Let's Encrypt; Google's own
+   CAs are a real possibility too per the upstream project's notes on other units), and a
+   live Google Fonts request could just as easily fail with no visible error. Downloaded
+   where TLS trust isn't a question (this Mac), served same-origin instead.
+   Static per-weight files only, not Google's variable-font response -- the default
+   "modern browser" response serves ONE file covering the whole weight range via
+   font-variation-settings, which needs Chrome 62+ and would silently render every weight
+   declared below as the same default instance on this WebView. Forced static files by
+   requesting with an old Chrome User-Agent string instead. */
+@font-face {
+  font-family: 'Inter';
+  font-weight: 200;
+  font-style: normal;
+  src: url('fonts/inter-200.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Inter';
+  font-weight: 500;
+  font-style: normal;
+  src: url('fonts/inter-500.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Inter';
+  font-weight: 600;
+  font-style: normal;
+  src: url('fonts/inter-600.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Inter';
+  font-weight: 700;
+  font-style: normal;
+  src: url('fonts/inter-700.woff2') format('woff2');
+}
+
+body {
+  width: 1280px;
+  height: 800px;
+  background: #0a0b10;
+  /* Several soft, large radial "aura" blobs instead of one flat linear gradient --
+     layering plain radial-gradient (supported long before this WebView's era) gives a
+     sense of depth/light sources without needing blur. */
+  background-image:
+    radial-gradient(ellipse 900px 600px at 10% -10%, rgba(130, 110, 255, 0.16), transparent 60%),
+    radial-gradient(ellipse 800px 500px at 95% 10%, rgba(255, 150, 90, 0.10), transparent 60%),
+    radial-gradient(ellipse 700px 500px at 50% 110%, rgba(60, 200, 170, 0.10), transparent 60%);
+  color: #eee;
+  font-family: 'Inter', -apple-system, Verdana, Arial, sans-serif;
+  overflow: hidden;
+}
+
+header {
+  padding: 44px 48px 36px;
+  display: flex;
+  align-items: baseline;
+}
+
+#clock {
+  font-size: 104px;
+  font-weight: 200;
+  letter-spacing: -3px;
+  color: #fff;
+}
+
+#date {
+  font-size: 24px;
+  font-weight: 500;
+  color: #8a90a8;
+  margin-left: 24px;
+}
+
+/* Flexbox "gap" isn't supported on this frame's old WebView (needs Chrome 84+) --
+   spacing between widgets is done with margin on the widget itself instead. */
+.widgets {
+  padding: 0 48px;
+  display: flex;
+  flex-wrap: wrap;
+}
+
+/* No border -- depth from a soft colored glow (each widget variant below) plus a plain
+   dark drop shadow for lift, rather than a flat accent-colored top edge. CSS custom
+   properties (--variables) need Chrome 49+, past this WebView's ~44 -- an unsupported
+   property is silently dropped, not a visible error, so the glow was defined directly per
+   class instead of via var() the first time this was tried, to actually render. */
+.widget {
+  /* 576px, not the original 560px -- the content box is 1184px (1280 - 48px padding each
+     side), minus one 32px gap, halved: (1184-32)/2 = 576. The original 560 left 32px of
+     unaccounted slack on the right of the row. Tried two other fixes first, both worse:
+     flex:1/flex-grow made every .widget equally flexible, so .widget-today lost its
+     forced full-width row and squeezed into a third column instead; calc((100% - 32px)/2)
+     computed the right pixel value but somehow made the row wrap after every single item
+     instead of fitting two per row -- percentage-in-calc() on a flex item's width seems to
+     be unreliable on this specific old engine (a known category of historical Chromium
+     flexbox bug). A plain static px value, computed once by hand instead of dynamically
+     in CSS, sidesteps that entirely. */
+  width: 576px;
+  margin: 0 32px 32px 0;
+  background: linear-gradient(165deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.02));
+  border-radius: 28px;
+  padding: 30px 32px;
+  box-shadow:
+    0 20px 50px rgba(0, 0, 0, 0.45),
+    0 0 60px -20px rgba(90, 140, 255, 0.5);
+}
+
+.widget-weather {
+  /* Last in its row -- its margin-right from .widget was unused space, but still counted
+     toward the row's total needed width: 576+32+576+32 = 1216px, 32px OVER the 1184px
+     content box. That overflow (not slack this time) is what was forcing the whole row to
+     wrap instead of fitting two across. Zeroing it is the actual fix; .widget-today
+     already had the same zeroing below, calendar doesn't need it since something (weather)
+     really does follow it. */
+  margin-right: 0;
+  box-shadow:
+    0 20px 50px rgba(0, 0, 0, 0.45),
+    0 0 60px -20px rgba(255, 170, 80, 0.55);
+}
+
+.widget-today {
+  /* Full row width, and its own trailing margin-right zeroed -- the margin:0 32px 32px 0
+     on .widget is unused here (nothing follows it in the row to create a gap with) and
+     would otherwise push total width 32px past the container, same class of bug as the
+     one this whole fix addresses. */
+  width: 100%;
+  margin-right: 0;
+  box-shadow:
+    0 20px 50px rgba(0, 0, 0, 0.45),
+    0 0 60px -20px rgba(80, 220, 170, 0.5);
+}
+
+.widget h2 {
+  font-size: 15px;
+  color: #a8adc2;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  margin-bottom: 22px;
+  display: flex;
+  align-items: center;
+}
+
+.widget-icon {
+  margin-right: 12px;
+  font-size: 20px;
+}
+
+#events {
+  list-style: none;
+}
+
+#events li {
+  font-size: 23px;
+  padding: 14px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  display: flex;
+}
+
+#events li:last-child {
+  border-bottom: none;
+}
+
+#events li .time {
+  color: #8fb8ff;
+  font-weight: 600;
+  min-width: 140px;
+}
+
+.empty {
+  color: #565c70;
+  font-style: italic;
+  font-size: 21px;
+}
+
+#weather {
+  display: flex;
+  align-items: center;
+}
+
+#weather .weather-icon-big {
+  font-size: 50px;
+  line-height: 1;
+  margin-right: 20px;
+  width: 84px;
+  height: 84px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 180, 90, 0.22), rgba(255, 180, 90, 0.04) 70%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#weather .temp {
+  font-size: 60px;
+  font-weight: 200;
+  color: #fff;
+  margin-right: 24px;
+}
+
+#weather .details {
+  font-size: 19px;
+  font-weight: 500;
+  color: #a8adc2;
+  line-height: 1.6;
+}
+
+#rain-alert {
+  margin-top: 20px;
+  padding: 12px 20px;
+  border-radius: 999px;
+  font-size: 18px;
+  font-weight: 600;
+  display: inline-block;
+}
+
+#rain-alert.rain-urgent {
+  background: linear-gradient(135deg, rgba(90, 160, 255, 0.28), rgba(90, 160, 255, 0.1));
+  color: #a9d4ff;
+}
+
+#rain-alert.rain-calm {
+  background: rgba(255, 255, 255, 0.05);
+  color: #7b8294;
+  font-weight: 500;
+}
+
+/* justify-content: space-between looked great at 3 columns but pushed 2 columns apart to
+   the opposite edges with nothing to anchor the middle -- awkward. A fixed gap between
+   columns (not one that stretches to fill available width) plus centering the whole row
+   as a block looks intentional at any count instead, with no count-specific styling:
+   2 columns sit together as a pair, 3 as a trio, etc. (No flex "gap" on this WebView --
+   the gap is margin-right on each column, same workaround as elsewhere in this file.) */
+#today-people {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.person-column {
+  min-width: 260px;
+  margin: 0 32px 16px 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.person-column:last-child {
+  margin-right: 0;
+}
+
+.person-column .person-name {
+  /* background, text color and glow all set inline per-person -- see personPillStyle()
+     in app.js. Translucent tint + glow, not a solid fill, to match the rest of the
+     page's "soft glow over dark translucent surface" look. */
+  font-size: 19px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  padding: 11px 26px;
+  border-radius: 999px;
+  margin-bottom: 18px;
+}
+
+/* .person-column is a centered flex column (name pill, then list) -- align-items:center
+   there already centers the list as a block. */
+.person-column ul {
+  list-style: none;
+}
+
+.person-column li {
+  font-size: 19px;
+  font-weight: 500;
+  padding: 7px 0;
+  text-align: center;
+}
+
+/* .item-text is centered by the <li>'s text-align, sized to the text's own width alone
+   -- the marker sits outside that box (not counted in what's being centered), so a short
+   line like "Swimming" centers based on its own text width, not stretched/offset by a
+   wider sibling row or by the icon's own width. */
+.item-text {
+  position: relative;
+  display: inline-block;
+}
+
+.category-marker {
+  position: absolute;
+  left: -28px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+}
+
+.category-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.category-icon {
+  font-size: 17px;
+}

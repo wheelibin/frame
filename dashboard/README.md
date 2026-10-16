@@ -1,0 +1,184 @@
+# Dashboard
+
+Plain HTML/CSS/JS, no build step — deliberately, since the frame's stock WebView doesn't
+need anything a bundler would buy us, and this is meant to hand off to a home server as-is.
+
+## The WebView 44 trap
+
+This frame ships WebView **44** (from ~2015/16). Modern JS syntax that feels completely
+safe to use today will cause a **silent syntax error that kills the entire script** — not
+just the feature that used it. First version of `app.js` used `async`/`await` (needs Chrome
+55+) and array destructuring (needs Chrome 49+); the result was that even the clock, in the
+same file but with no connection to the calendar code, stopped updating. No console visible
+on-device to see the actual error — the only symptom was "nothing happens."
+
+**Known-safe**: `var`, plain `function`, `.then()`/`.catch()` promise chains, `fetch()`,
+regular string concatenation, `for` loops, array `.filter()`/`.sort()`/`.map()`.
+**Known-unsafe**: `async`/`await`, destructuring (`const [a, b] = x`), probably arrow
+functions and template literals too (not individually isolated — just avoid all of it).
+
+If a future feature genuinely needs modern JS/CSS, the documented fix is upgrading the
+system WebView to 106 (see [pf1007l-root-adb.md](../docs/pf1007l-root-adb.md) and the
+upstream repo's `allwinner-a33-pf1007l.md` section 6) — deliberately not done yet, since
+nothing so far has actually needed it.
+
+## The missing-viewport-meta trap
+
+A faint vertical band of lighter color appeared on-screen, full height, independent of any
+background color or gradient we set. Took a while to pin down because every content-based
+theory was wrong: not the gradient (persisted with a flat color), not `box-shadow`/
+`border-radius` on the widget cards (persisted with those removed), and critically — a
+screenshot (`adb exec-out screencap`) showed **perfectly flat color, no band at all**, while
+the physical screen still showed it. That split (framebuffer clean, physical screen not)
+at first looked like a hardware backlight issue... except a truly minimal, fully-inline
+test page (no external CSS, no JS, just a flat `background` in a `<style>` block) showed
+**no band at all**, physically confirmed. So it was real, software-caused, but invisible to
+a plain screenshot tool.
+
+Actual cause: **no `<meta name="viewport">` tag**. Without one, this WebView falls back to
+a legacy default desktop-style layout viewport (commonly 980px) and scales the result up to
+fill the real 1280px screen — and that scaling is exactly the kind of thing that produces a
+soft rendering seam on weak/old GPU hardware, especially right where tile-rendering
+boundaries fall. A flat, featureless background scales to another flat background with
+nothing to reveal the seam; real layout content does. `screencap` reads the rendered
+framebuffer *before* this particular scaling pass, which is presumably why it looked clean
+there specifically.
+
+Fix: force a 1:1 pixel mapping so there's no scaling to introduce a seam at all.
+```html
+<meta name="viewport" content="width=1280">
+```
+Already in `index.html`. If this page's fixed dimensions ever change from 1280×800, update
+the `width` value here and in `style.css`'s `body` rule together.
+
+## Why every external data source gets fetched server-side, not from the browser
+
+Two unrelated problems, same symptom (the widget can't load its data), same fix. Worth
+understanding both before adding a third data source, since which one you hit changes how
+you'd debug it:
+
+1. **No CORS headers.** iCloud's calendar feed doesn't send
+   `Access-Control-Allow-Origin`, so any browser — not just this one — refuses a
+   cross-origin `fetch()` to it. Confirmed via `curl -I`.
+2. **Missing root CA.** This frame's WebView has no **ISRG Root X1** (Let's Encrypt's
+   root CA) in its trust store — a known gap on this hardware/Android-6 vintage. Any
+   Let's Encrypt-signed site fails from the WebView specifically, even with perfect CORS
+   headers (Open-Meteo sends `Access-Control-Allow-Origin: *` and still failed, logged as
+   `HTTP 0` — confirmed the real cause via the cert chain: `openssl s_client` showed
+   `issuer=.../O=Let's Encrypt/CN=YR1`). `fetch()` on this WebView also silently refuses
+   *all* cross-origin requests regardless of CORS (logcat: `"Fetch API cannot load ..."`
+   with no further detail) — a second, independent reason the direct approach doesn't work.
+
+The fix for all of it: fetch server-side (`curl`, which has a normal up-to-date trust
+store and doesn't care about CORS at all) and have `app.js` read the cached local file —
+same-origin, so neither problem applies. Same-origin `fetch()` is also unaffected by the
+WebView's broken cross-origin `fetch()`.
+
+Before reaching for this pattern on a new data source: check `curl -I` for CORS headers,
+and `openssl s_client -connect <host>:443 | openssl x509 -noout -issuer` for the CA. If a
+source has real CORS support *and* a non-Let's-Encrypt cert, direct client-side `fetch()`
+might actually work — but fetch-then-serve-locally is the safe default given this WebView's
+track record, and it's what both current widgets do.
+
+## Calendar (iCloud)
+
+```sh
+./fetch-calendar.sh        # curls calendar-url.txt -> calendar.ics, same directory
+```
+
+`app.js` fetches `calendar.ics` and parses `VEVENT` blocks itself — no library, since the
+subset needed (`SUMMARY`/`DTSTART`/`DTEND`, no recurring events) is small enough that one
+wasn't worth adding. `calendar-url.txt` and `calendar.ics` are both gitignored — the share
+link and your actual schedule are both things to keep out of version control, even in a
+private repo.
+
+**"Today" widget**: an all-day event titled `[name:category] text` (e.g.
+`[alex:music] Piano practice`) is pulled out of the regular Upcoming list and shown in a
+dedicated widget instead, grouped by person, with a colored dot per category — a day-at-a-
+glance view of who's doing what. Only applies to *today's* tagged all-day events; tagged
+events on other days, and anything not matching that exact bracket form, still show
+normally in Upcoming. Category colors are a small lookup in `app.js`
+(`CATEGORY_COLORS`) with a default fallback color for anything not listed — add new
+categories there as they come up.
+
+**Not handled yet**: recurring events (`RRULE`) — they simply won't appear, since expanding
+them correctly (with exceptions, timezone edge cases) is real complexity that hasn't been
+needed yet. Add it if a recurring event you care about goes missing.
+
+## Weather (Open-Meteo)
+
+```sh
+./fetch-weather.sh         # curls current + today's high/low -> weather.json
+```
+
+No API key needed. Location is a fixed lat/long (the frame doesn't move), resolved once
+via Open-Meteo's geocoding API, not hand-typed — split across two files so the mechanism
+can be committed without publishing where this actually lives:
+
+- `config.js` (committed): a placeholder location (Death Valley, deliberately — if this is
+  what's showing, the override below isn't working, obvious at a glance rather than
+  something you'd have to dig through devtools to notice).
+- `config.local.js` (gitignored, create it yourself): the real `WEATHER_LAT`/`WEATHER_LON`,
+  loaded after `config.js` in `index.html` so it overrides when present. Both
+  `fetch-weather.sh` and the page itself read from whichever one exists — one source of
+  truth, not two places to keep in sync.
+
+Open-Meteo's `daily` parameter has been flaky upstream (intermittent
+`"service is overloaded"` errors independent of the query); `fetch-weather.sh` falls back
+to current-conditions-only if so, rather than leaving stale/no data.
+
+**"Rain in Xh" / "No rain expected" readout**: uses `minutely_15` (15-minute-resolution
+precipitation + probability, next ~4 hours). Triggers on probability crossing
+`RAIN_PROBABILITY_THRESHOLD` (60%, in `app.js`) as well as actual forecast amount, not
+amount alone — confirmed necessary against real weather: during genuine light/intermittent
+rain, `precipitation` read a flat `0.0mm` for every near-term slot (below Open-Meteo's
+reporting resolution) while `precipitation_probability` correctly read >50% and climbing.
+Amount-only triggering missed real rain entirely until this was caught by it not matching
+what was actually happening outside.
+
+On a real deployment, put both `fetch-*.sh` scripts on a cron wherever this ends up hosted,
+so the `.json`/`.ics` files stay current without the frame needing to reach either service
+directly.
+
+## Dev loop
+
+```sh
+./dev-deploy.sh
+```
+
+Edit, save, re-run — no rebuild, no reinstall. Safe to re-run repeatedly: starts
+`dev-server.py` only if it isn't already running, re-tunnels over USB (a no-op if already
+set up), and reloads the kiosk. Under the hood it's just:
+```sh
+python3 dev-server.py &                           # serve this directory, no caching (see below)
+adb -d reverse tcp:8765 tcp:8765                   # tunnel it over USB (redo after every reboot)
+adb -d shell am start -n com.wesbos.homehq/.MainActivity --es url http://localhost:8765/
+```
+
+**Use `dev-server.py`, not plain `python3 -m http.server`.** The WebView caches every
+linked resource (`style.css`, `app.js`, ...) independently **by its own URL**, not tied to
+the page's URL at all — cache-busting the page's URL on reload does nothing for them. Hit
+this for real: made several CSS-only edits in a row, reloaded each time, and was looking at
+a stale cached stylesheet the entire time with zero indication anything was wrong (the
+page URL changing on reload masked it completely). `dev-server.py` is identical to the
+stdlib server except it sends `Cache-Control: no-store` on every response, which fixes
+this at the source instead of needing to cache-bust every resource by hand. Separately:
+pointing the kiosk at `http://localhost:8765/` across two totally different local servers
+in one session (this dashboard, then an unrelated experiment) produced a white screen from
+a *different* stale-cache angle — the WebView served the other server's cached
+`index.html`. A `?t=$(date +%s)` query string on the page URL itself still handles that
+specific case if it ever recurs; `dev-server.py` handles the rest.
+
+## Deploying for real
+
+Whatever's in this directory is the whole site — copy it to wherever it'll actually be
+served from (a Cloudflare Pages project, a folder on a home server, etc.), set up
+`fetch-calendar.sh` on a cron there, and point the kiosk at the real URL:
+
+```sh
+adb -d shell am start -n com.wesbos.homehq/.MainActivity --es url https://your-real-url/
+```
+
+That one command (or `scripts/set-kiosk-url.sh` from the upstream repo) is the entire
+"push an update" story once this is live — see
+[adb-commands.md](../docs/adb-commands.md#kiosk--dashboard-control-home-hq-comwesboshomehq).
