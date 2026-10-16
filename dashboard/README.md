@@ -171,14 +171,60 @@ specific case if it ever recurs; `dev-server.py` handles the rest.
 
 ## Deploying for real
 
-Whatever's in this directory is the whole site — copy it to wherever it'll actually be
-served from (a Cloudflare Pages project, a folder on a home server, etc.), set up
-`fetch-calendar.sh` on a cron there, and point the kiosk at the real URL:
+This can't just be static files on something like Cloudflare Pages anymore. The shopping
+list, litter, and fish widgets go through `dev-server.py`'s live relay to Home Assistant
+(reads **and** writes, with the auth token kept server-side) — that needs a process running
+continuously, not a one-time file copy. Calendar/weather are still just cron-fetched files,
+but they're cheap to run alongside the relay rather than set up separately.
+
+Packaged as a Docker Compose app (`Dockerfile`, `entrypoint.sh`, `docker-compose.yml`,
+all in this directory) to match a `~/apps/<name>/docker-compose.yml` per app layout:
+
+One-time setup, from your machine:
 
 ```sh
-adb -d shell am start -n com.wesbos.homehq/.MainActivity --es url https://your-real-url/
+# Points deploy.sh at your server -- gitignored, same reasoning as config.local.js/
+# ha.local.json below (real host/username, not something to commit):
+echo 'HOST=user@your-server' > dashboard/.deploy.env
+
+./dashboard/deploy.sh   # first run also creates ~/apps/dashboard and builds the image
 ```
 
-That one command (or `scripts/set-kiosk-url.sh` from the upstream repo) is the entire
-"push an update" story once this is live — see
+Then, on the server, create the gitignored local-config files directly in
+`~/apps/dashboard/` — they never get committed, so they have to exist independently on
+every machine that runs this (see the `config.local.js` and `ha.local.json` sections above
+for what goes in each):
+
+- `config.local.js` (real lat/long)
+- `calendar-url.txt` (iCloud share link)
+- `ha.local.json` (HA url, long-lived access token, entity ids)
+
+Then restart once so the container picks them up: `docker compose up -d --build` (or just
+re-run `./dashboard/deploy.sh` from your machine).
+
+The container's `entrypoint.sh` runs `fetch-calendar.sh`/`fetch-weather.sh` once on
+startup and then every 15 minutes in the background, and runs `dev-server.py` in the
+foreground as the main process — no separate cron needed. `docker-compose.yml` bind-mounts
+this directory into the container rather than baking it into the image, so shipping a
+change after the one-time setup above is just:
+
+```sh
+./deploy.sh
+```
+
+tar over ssh, not rsync — the server doesn't have rsync installed. Excludes `.git` and
+the gitignored local-config files (those stay put on the server, edited there directly if
+they ever need to change) and re-runs `docker compose up -d --build` so a `Dockerfile`
+change picks up too, not just the code.
+
+Then point the kiosk at the real URL:
+
+```sh
+adb -d shell am start -n com.wesbos.homehq/.MainActivity --es url http://your-server:8765/
+```
+
+That `am start` command (or `scripts/set-kiosk-url.sh` from the upstream repo) is the
+entire "push the frame to a new URL" story — see
 [adb-commands.md](../docs/adb-commands.md#kiosk--dashboard-control-home-hq-comwesboshomehq).
+You only need to re-run it if the URL itself changes; code updates just need the
+rsync+restart above, since the frame re-fetches the page each time it reloads.

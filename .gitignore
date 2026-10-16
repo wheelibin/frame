@@ -5,3 +5,4 @@ dashboard/calendar.ics
 dashboard/weather.json
 dashboard/config.local.js
 dashboard/ha.local.json
+dashboard/.deploy.env
