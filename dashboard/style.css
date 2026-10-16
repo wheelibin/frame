@@ -54,23 +54,67 @@ body {
   color: #eee;
   font-family: 'Inter', -apple-system, Verdana, Arial, sans-serif;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 header {
-  padding: 44px 48px 36px;
+  flex-shrink: 0;
+  padding: 30px 48px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.header-left {
   display: flex;
   align-items: baseline;
 }
 
+.header-status {
+  display: flex;
+  align-items: center;
+}
+
+.status-pill {
+  font-size: 17px;
+  font-weight: 600;
+  color: #a8adc2;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  padding: 10px 20px;
+  margin-left: 14px;
+  display: flex;
+  align-items: center;
+}
+
+#dog-fed-value, #litter-value, #fish-value {
+  color: #fff;
+  margin-left: 6px;
+}
+
+.pill-action-btn {
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  color: #e8d9ff;
+  background: linear-gradient(135deg, rgba(170, 110, 255, 0.35), rgba(170, 110, 255, 0.15));
+  border: 1px solid rgba(170, 110, 255, 0.5);
+  border-radius: 999px;
+  padding: 7px 16px;
+  margin-left: 14px;
+}
+
 #clock {
-  font-size: 104px;
+  font-size: 84px;
   font-weight: 200;
-  letter-spacing: -3px;
+  letter-spacing: -2px;
   color: #fff;
 }
 
 #date {
-  font-size: 24px;
+  font-size: 22px;
   font-weight: 500;
   color: #8a90a8;
   margin-left: 24px;
@@ -79,9 +123,15 @@ header {
 /* Flexbox "gap" isn't supported on this frame's old WebView (needs Chrome 84+) --
    spacing between widgets is done with margin on the widget itself instead. */
 .widgets {
+  flex: 1;
+  min-height: 0;
   padding: 0 48px;
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
+}
+
+.row1 {
+  display: flex;
 }
 
 /* No border -- depth from a soft colored glow (each widget variant below) plus a plain
@@ -101,35 +151,44 @@ header {
      flexbox bug). A plain static px value, computed once by hand instead of dynamically
      in CSS, sidesteps that entirely. */
   width: 576px;
-  margin: 0 32px 32px 0;
+  margin: 0 32px 24px 0;
   background: linear-gradient(165deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.02));
   border-radius: 28px;
-  padding: 30px 32px;
+  padding: 22px 32px;
   box-shadow:
     0 20px 50px rgba(0, 0, 0, 0.45),
     0 0 60px -20px rgba(90, 140, 255, 0.5);
 }
 
-.widget-weather {
-  /* Last in its row -- its margin-right from .widget was unused space, but still counted
-     toward the row's total needed width: 576+32+576+32 = 1216px, 32px OVER the 1184px
-     content box. That overflow (not slack this time) is what was forcing the whole row to
-     wrap instead of fitting two across. Zeroing it is the actual fix; .widget-today
-     already had the same zeroing below, calendar doesn't need it since something (weather)
-     really does follow it. */
+.widget-shopping {
+  /* Last in its row now (weather/shopping swapped) -- see .widget-weather's old comment
+     for why this zeroing matters: without it the row's total width goes 32px over the
+     content box and the whole row wraps instead of fitting two across. */
   margin-right: 0;
+  box-shadow:
+    0 20px 50px rgba(0, 0, 0, 0.45),
+    0 0 60px -20px rgba(170, 110, 255, 0.5);
+}
+
+.widget-weather {
   box-shadow:
     0 20px 50px rgba(0, 0, 0, 0.45),
     0 0 60px -20px rgba(255, 170, 80, 0.55);
 }
 
 .widget-today {
-  /* Full row width, and its own trailing margin-right zeroed -- the margin:0 32px 32px 0
-     on .widget is unused here (nothing follows it in the row to create a gap with) and
-     would otherwise push total width 32px past the container, same class of bug as the
-     one this whole fix addresses. */
+  /* Its own trailing margin-right zeroed -- the margin:0 32px 24px 0 on .widget is unused
+     here (nothing follows it to create a gap with) and would otherwise shrink it 32px
+     narrower than the full row width, same class of bug the width fix above addresses.
+     flex:1 (its parent .widgets is now a column flex container) grows it to fill whatever
+     vertical space is left under row1, instead of staying content-sized with a dead gap
+     at the bottom of the page. */
   width: 100%;
+  flex: 1;
+  min-height: 0;
   margin-right: 0;
+  display: flex;
+  flex-direction: column;
   box-shadow:
     0 20px 50px rgba(0, 0, 0, 0.45),
     0 0 60px -20px rgba(80, 220, 170, 0.5);
@@ -141,7 +200,7 @@ header {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 2px;
-  margin-bottom: 22px;
+  margin-bottom: 16px;
   display: flex;
   align-items: center;
 }
@@ -151,25 +210,75 @@ header {
   font-size: 20px;
 }
 
-#events {
-  list-style: none;
+.shopping-add-row {
+  display: flex;
+  margin-bottom: 14px;
 }
 
-#events li {
-  font-size: 23px;
-  padding: 14px 0;
+#shopping-input {
+  flex: 1;
+  min-width: 0; /* otherwise a flex item's default min-width:auto can keep it from
+                   shrinking below its content size, pushing the Add button out past the
+                   card edge -- the same category of flexbox sizing gotcha as the earlier
+                   widget-width issue, just on the shrink side instead of the grow side */
+  font-family: inherit;
+  font-size: 18px;
+  color: #eee;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  padding: 10px 16px;
+  margin-right: 12px;
+}
+
+#shopping-input::placeholder {
+  color: #6a7088;
+}
+
+#shopping-add-btn {
+  font-family: inherit;
+  font-size: 18px;
+  font-weight: 600;
+  color: #e8d9ff;
+  background: linear-gradient(135deg, rgba(170, 110, 255, 0.35), rgba(170, 110, 255, 0.15));
+  border: 1px solid rgba(170, 110, 255, 0.5);
+  border-radius: 12px;
+  padding: 10px 22px;
+}
+
+#shopping-items {
+  list-style: none;
+  max-height: 150px;
+  overflow-y: auto;
+}
+
+#shopping-items li {
+  font-size: 19px;
+  font-weight: 500;
+  color: #fff;
+  padding: 9px 0;
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
   display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
-#events li:last-child {
+#shopping-items li:last-child {
   border-bottom: none;
 }
 
-#events li .time {
-  color: #8fb8ff;
-  font-weight: 600;
-  min-width: 140px;
+.shopping-remove-btn {
+  font-family: inherit;
+  font-size: 20px;
+  line-height: 1;
+  color: #a8adc2;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  margin-left: 16px;
 }
 
 .empty {
@@ -231,6 +340,27 @@ header {
   font-weight: 500;
 }
 
+#coat-alert {
+  margin-top: 20px;
+  margin-left: 12px;
+  padding: 12px 20px;
+  border-radius: 999px;
+  font-size: 18px;
+  font-weight: 600;
+  display: inline-block;
+}
+
+#coat-alert.coat-needed {
+  background: linear-gradient(135deg, rgba(255, 170, 80, 0.28), rgba(255, 170, 80, 0.1));
+  color: #ffd1a3;
+}
+
+#coat-alert.coat-ok {
+  background: rgba(255, 255, 255, 0.05);
+  color: #7b8294;
+  font-weight: 500;
+}
+
 /* justify-content: space-between looked great at 3 columns but pushed 2 columns apart to
    the opposite edges with nothing to anchor the middle -- awkward. A fixed gap between
    columns (not one that stretches to fill available width) plus centering the whole row
@@ -238,14 +368,16 @@ header {
    2 columns sit together as a pair, 3 as a trio, etc. (No flex "gap" on this WebView --
    the gap is margin-right on each column, same workaround as elsewhere in this file.) */
 #today-people {
+  flex: 1;
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
+  align-content: center;
 }
 
 .person-column {
   min-width: 260px;
-  margin: 0 32px 16px 0;
+  margin: 0 32px 12px 0;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -263,9 +395,9 @@ header {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 1.5px;
-  padding: 11px 26px;
+  padding: 9px 26px;
   border-radius: 999px;
-  margin-bottom: 18px;
+  margin-bottom: 14px;
 }
 
 /* .person-column is a centered flex column (name pill, then list) -- align-items:center
@@ -277,7 +409,8 @@ header {
 .person-column li {
   font-size: 19px;
   font-weight: 500;
-  padding: 7px 0;
+  color: #fff;
+  padding: 5px 0;
   text-align: center;
 }
 

@@ -4,3 +4,4 @@ dashboard/calendar-url.txt
 dashboard/calendar.ics
 dashboard/weather.json
 dashboard/config.local.js
+dashboard/ha.local.json

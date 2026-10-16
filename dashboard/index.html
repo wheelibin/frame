@@ -8,19 +8,40 @@
 </head>
 <body>
   <header>
-    <div id="clock"></div>
-    <div id="date"></div>
+    <div class="header-left">
+      <div id="clock"></div>
+      <div id="date"></div>
+    </div>
+    <div class="header-status">
+      <!-- Text labels, not icons -- the obvious emoji here (dog U+1F415, paw U+1F43E) are
+           outside the BMP, same class of issue as the shopping cart icon elsewhere in this
+           project, and would render as tofu boxes on this device's font. -->
+      <span class="status-pill" id="dog-fed-pill">Dog fed: <span id="dog-fed-value">&ndash;</span></span>
+      <span class="status-pill" id="fish-pill">Fish fed: <span id="fish-value">&hellip;</span><button class="pill-action-btn" id="fish-fed-btn" data-action="fed">Fed</button></span>
+      <span class="status-pill" id="litter-pill">Litter: <span id="litter-value">&hellip;</span><button class="pill-action-btn" id="litter-scoop-btn" data-action="scoop">Scooped</button></span>
+    </div>
   </header>
   <main class="widgets">
-    <section class="widget widget-calendar">
-      <h2><span class="widget-icon">&#128197;</span>Upcoming</h2>
-      <ul id="events"><li class="empty">Loading&hellip;</li></ul>
-    </section>
-    <section class="widget widget-weather">
-      <h2><span class="widget-icon" id="weather-icon">&#9728;</span>Weather</h2>
-      <div id="weather"><p class="empty">Loading&hellip;</p></div>
-      <div id="rain-alert"></div>
-    </section>
+    <div class="row1">
+      <section class="widget widget-weather">
+        <h2><span class="widget-icon" id="weather-icon">&#9728;</span>Weather</h2>
+        <div id="weather"><p class="empty">Loading&hellip;</p></div>
+        <div id="rain-alert"></div>
+        <div id="coat-alert"></div>
+      </section>
+      <section class="widget widget-shopping">
+        <!-- Trigram-for-heaven glyph (U+2630, same Misc Symbols block as the weather/today
+             icons) used as a plain list icon -- the shopping cart emoji (U+1F6D2) is outside
+             the BMP and didn't render on this device's font, same class of issue as the
+             ticket emoji elsewhere in this project. -->
+        <h2><span class="widget-icon">&#9776;</span>Shopping List</h2>
+        <div class="shopping-add-row">
+          <input type="text" id="shopping-input" placeholder="Add item&hellip;">
+          <button id="shopping-add-btn">Add</button>
+        </div>
+        <ul id="shopping-items"><li class="empty">Loading&hellip;</li></ul>
+      </section>
+    </div>
     <section class="widget widget-today">
       <h2><span class="widget-icon">&#9989;</span>Today</h2>
       <div id="today-people"><p class="empty">Loading&hellip;</p></div>

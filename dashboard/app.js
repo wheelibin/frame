@@ -253,50 +253,11 @@ function renderTodayPeople(taggedEvents) {
     .join("");
 }
 
-function renderEvents(events) {
-  var list = document.getElementById("events");
-  var now = new Date();
-  var upcoming = events
-    .filter(function (e) {
-      if (!e.start) return false;
-      var endDate = e.end ? e.end.date : e.start.date;
-      return endDate >= now;
-    })
-    .sort(function (a, b) {
-      return a.start.date - b.start.date;
-    })
-    .slice(0, 8);
-
-  if (upcoming.length === 0) {
-    list.innerHTML = '<li class="empty">Nothing upcoming</li>';
-    return;
-  }
-  list.innerHTML = upcoming
-    .map(function (e) {
-      var time = e.start.allDay
-        ? e.start.date.toLocaleDateString([], {
-            month: "short",
-            day: "numeric",
-          })
-        : e.start.date.toLocaleString([], {
-            month: "short",
-            day: "numeric",
-            hour: "numeric",
-            minute: "2-digit",
-          });
-      return (
-        '<li><span class="time">' +
-        time +
-        "</span>" +
-        (e.summary || "(untitled)") +
-        "</li>"
-      );
-    })
-    .join("");
-}
-
+// Upcoming (non-today, untagged) events no longer have a widget of their own -- replaced
+// by the shopping list -- so this only extracts today's tagged items for renderTodayPeople
+// now. Still needs the full calendar.ics fetch/parse either way, since that's the only
+// source for the Today widget too.
 function loadCalendar() {
-  var list = document.getElementById("events");
   var today = document.getElementById("today-people");
   fetch("calendar.ics", { cache: "no-store" })
     .then(function (res) {
@@ -306,22 +267,18 @@ function loadCalendar() {
     .then(function (text) {
       var events = parseICS(text);
       var taggedToday = [];
-      var rest = [];
       events.forEach(function (e) {
         var tagged =
           e.start && e.start.allDay && isToday(e.start.date)
             ? parseTaggedSummary(e.summary)
             : null;
         if (tagged) taggedToday.push(tagged);
-        else rest.push(e);
       });
       renderTodayPeople(taggedToday);
-      renderEvents(rest);
     })
     .catch(function (err) {
-      list.innerHTML =
-        '<li class="empty">Calendar unavailable (' + err.message + ")</li>";
-      today.innerHTML = '<p class="empty">Calendar unavailable</p>';
+      today.innerHTML =
+        '<p class="empty">Calendar unavailable (' + err.message + ")</p>";
     });
 }
 
@@ -381,6 +338,24 @@ function parseISOMinute(s) {
 // alone missed it entirely.
 var RAIN_PROBABILITY_THRESHOLD = 60;
 
+// Below this today's low (°C), or if today's rain probability clears
+// RAIN_PROBABILITY_THRESHOLD, the coat pill lights up -- kids-leaving-for-school framing,
+// not a precise comfort model.
+var COAT_TEMP_THRESHOLD = 12;
+
+function coatAlertText(daily) {
+  if (!daily) return null;
+  var cold = daily.temperature_2m_min[0] < COAT_TEMP_THRESHOLD;
+  var wet =
+    daily.precipitation_probability_max &&
+    daily.precipitation_probability_max[0] >= RAIN_PROBABILITY_THRESHOLD;
+  if (!cold && !wet) return { text: "No coat needed", icon: "&#9989;", needed: false };
+  // Umbrella takes priority over snowflake when both apply -- rain is the more
+  // immediately obvious reason to grab a coat.
+  var icon = wet ? "&#9748;" : "&#10052;";
+  return { text: "Take a coat today", icon: icon, needed: true };
+}
+
 function rainForecastText(minutely) {
   if (!minutely || !minutely.time) return null;
   var now = new Date();
@@ -439,6 +414,15 @@ function renderWeather(current, daily, minutely) {
     rainEl.innerHTML =
       (rain.urgent ? "&#127783;&#65039; " : "&#9989; ") + rain.text;
   }
+
+  var coat = coatAlertText(daily);
+  var coatEl = document.getElementById("coat-alert");
+  if (!coat) {
+    coatEl.innerHTML = "";
+  } else {
+    coatEl.className = coat.needed ? "coat-needed" : "coat-ok";
+    coatEl.innerHTML = coat.icon + " " + coat.text;
+  }
 }
 
 function loadWeather() {
@@ -455,8 +439,170 @@ function loadWeather() {
       document.getElementById("weather").innerHTML =
         '<p class="empty">Weather unavailable (' + err.message + ")</p>";
       document.getElementById("rain-alert").innerHTML = "";
+      document.getElementById("coat-alert").innerHTML = "";
     });
 }
 
 loadWeather();
 setInterval(loadWeather, 1000 * 60 * 15);
+
+// --- Shopping list: live reads/writes through dev-server.py's /api/shopping-list relay
+// to Home Assistant's todo integration -- not a cron-fetched snapshot like calendar/
+// weather, since adding an item needs to actually reach HA, and whatever's added via HA
+// itself (phone, voice assistant) should show up here too. Whatever ends up hosting this
+// for real needs an equivalent live relay running continuously; see dev-server.py's own
+// comment for why a plain static-file host can't do this one.
+
+function escapeHtml(s) {
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+function renderShoppingList(items) {
+  var list = document.getElementById('shopping-items');
+  if (items.length === 0) {
+    list.innerHTML = '<li class="empty">Nothing on the list</li>';
+    return;
+  }
+  list.innerHTML = items.map(function (item) {
+    return '<li><span class="shopping-item-text">' + escapeHtml(item.summary) +
+      '</span><button class="shopping-remove-btn" data-uid="' + escapeHtml(item.uid) +
+      '">&times;</button></li>';
+  }).join('');
+}
+
+function removeShoppingItem(uid) {
+  fetch('/api/shopping-list?uid=' + encodeURIComponent(uid), { method: 'DELETE' })
+    .then(function (res) {
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      return res.json();
+    }).then(function (data) {
+      if (data.error) throw new Error(data.error);
+      loadShoppingList();
+    }).catch(function (err) {
+      alert('Could not remove item: ' + err.message);
+    });
+}
+
+function loadShoppingList() {
+  var list = document.getElementById('shopping-items');
+  fetch('/api/shopping-list', { cache: 'no-store' }).then(function (res) {
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    return res.json();
+  }).then(function (data) {
+    if (data.error) throw new Error(data.error);
+    renderShoppingList(data.items);
+  }).catch(function (err) {
+    list.innerHTML = '<li class="empty">List unavailable (' + err.message + ')</li>';
+  });
+}
+
+function addShoppingItem() {
+  var input = document.getElementById('shopping-input');
+  var value = input.value.trim();
+  if (!value) return;
+  input.disabled = true;
+  fetch('/api/shopping-list', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ item: value })
+  }).then(function (res) {
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    return res.json();
+  }).then(function (data) {
+    if (data.error) throw new Error(data.error);
+    input.value = '';
+    loadShoppingList();
+  }).catch(function (err) {
+    // Rare on a home LAN; a visible alert is simpler than a dedicated error-state UI for
+    // something that should basically never happen in practice.
+    alert('Could not add item: ' + err.message);
+  }).then(function () {
+    input.disabled = false;
+    input.focus();
+  });
+}
+
+document.getElementById('shopping-add-btn').addEventListener('click', addShoppingItem);
+document.getElementById('shopping-input').addEventListener('keydown', function (e) {
+  if (e.keyCode === 13) addShoppingItem(); // keyCode, not e.key -- e.key needs Chrome 51+
+});
+document.getElementById('shopping-items').addEventListener('click', function (e) {
+  if (e.target.className === 'shopping-remove-btn') {
+    removeShoppingItem(e.target.getAttribute('data-uid'));
+  }
+});
+
+function daysAgoText(days) {
+  if (days === 0) return 'today';
+  if (days === 1) return 'yesterday';
+  return days + ' days ago';
+}
+
+// input_datetime-backed "last done X days ago, tap to reset" pills -- mirrors
+// dev-server.py's TRACKERS dict (name -> GET /api/<name>, POST /api/<name>/<data-action>).
+function setupTracker(name, valueId, btnId) {
+  var value = document.getElementById(valueId);
+  var btn = document.getElementById(btnId);
+
+  function load() {
+    fetch('/api/' + name, { cache: 'no-store' }).then(function (res) {
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      return res.json();
+    }).then(function (data) {
+      if (data.error) throw new Error(data.error);
+      value.textContent = daysAgoText(data.days_ago);
+    }).catch(function () {
+      value.textContent = '?';
+    });
+  }
+
+  btn.addEventListener('click', function () {
+    btn.disabled = true;
+    fetch('/api/' + name + '/' + btn.getAttribute('data-action'), { method: 'POST' })
+      .then(function (res) {
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        return res.json();
+      }).then(function (data) {
+        if (data.error) throw new Error(data.error);
+        load();
+      }).catch(function (err) {
+        alert('Could not log ' + name + ': ' + err.message);
+      }).then(function () {
+        btn.disabled = false;
+      });
+  });
+
+  load();
+  setInterval(load, 1000 * 60 * 5);
+}
+
+// Dog-fed sensor isn't set up yet -- hide the pill until ha.local.json has a
+// dog_fed_entity_id configured, so this is a no-op until then.
+function loadDogFed() {
+  var pill = document.getElementById('dog-fed-pill');
+  fetch('/api/dog-fed', { cache: 'no-store' }).then(function (res) {
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    return res.json();
+  }).then(function (data) {
+    if (!data.configured) {
+      pill.style.display = 'none';
+      return;
+    }
+    pill.style.display = '';
+    document.getElementById('dog-fed-value').textContent = data.state;
+  }).catch(function () {
+    pill.style.display = 'none';
+  });
+}
+
+setupTracker('litter', 'litter-value', 'litter-scoop-btn');
+setupTracker('fish', 'fish-value', 'fish-fed-btn');
+
+loadDogFed();
+setInterval(loadDogFed, 1000 * 60 * 2);
+
+loadShoppingList();
+setInterval(loadShoppingList, 1000 * 60 * 2);

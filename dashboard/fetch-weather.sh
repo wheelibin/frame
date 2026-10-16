@@ -21,7 +21,7 @@ base="https://api.open-meteo.com/v1/forecast?latitude=$lat&longitude=$lon&timezo
 # minutely_15: 15-minute-resolution precipitation for a "rain expected in X min" style
 # readout, next 4 hours (16 slots). Only actually available for some regions/models; falls
 # back the same as daily if the combined request errors.
-full="$base&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min&forecast_days=1&minutely_15=precipitation,precipitation_probability&forecast_minutely_15=16"
+full="$base&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max&forecast_days=1&minutely_15=precipitation,precipitation_probability&forecast_minutely_15=16"
 
 if ! curl -sf "$full" -o weather.json.tmp; then
   echo "fetch failed" >&2
