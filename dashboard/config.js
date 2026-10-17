@@ -15,3 +15,10 @@ var WEATHER_LON = -116.81133;
 // anything. Empty here (committed placeholder, like WEATHER_LAT/LON above) -- real names
 // go in config.local.js (gitignored), not here.
 var KNOWN_PEOPLE = [];
+
+// Bin collection schedule -- council-specific, so treated like location/names above:
+// committed placeholder here (empty, nothing shows), real schedule in config.local.js
+// (gitignored). Each entry is one bin's most recently known collection date plus how
+// often it repeats; app.js projects forward from `anchor` by `intervalWeeks` to find the
+// next upcoming date, rather than needing this list re-typed every few weeks.
+var BIN_SCHEDULE = [];

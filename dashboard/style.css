@@ -92,6 +92,25 @@ header {
   align-items: baseline;
 }
 
+#bin-pill {
+  display: none;
+}
+
+#bin-pill.bin-pill-visible {
+  display: flex;
+}
+
+.bin-icon {
+  width: 24px;
+  height: 24px;
+  margin-right: 8px;
+  flex-shrink: 0;
+}
+
+.bin-icon:last-child {
+  margin-right: 0;
+}
+
 .controls-row {
   flex-shrink: 0;
   margin-bottom: 24px;

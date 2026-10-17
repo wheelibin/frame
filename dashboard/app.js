@@ -13,6 +13,60 @@ function tick() {
 tick();
 setInterval(tick, 1000 * 30);
 
+// --- Bin collection: BIN_SCHEDULE (config.js placeholder / config.local.js real data)
+// gives each bin's most recently known collection date plus how often it repeats --
+// projected forward here so the list doesn't need re-typing every few weeks.
+function parseLocalDate(s) {
+  var m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  return new Date(+m[1], +m[2] - 1, +m[3]);
+}
+
+function nextBinDate(anchor, intervalWeeks) {
+  var date = parseLocalDate(anchor);
+  var today = new Date();
+  today.setHours(0, 0, 0, 0);
+  // setDate, not elapsed-ms addition -- operates in local calendar-day space, so it
+  // can't drift an hour off across a DST transition the way adding intervalWeeks*7*24h
+  // of milliseconds could.
+  while (date < today) {
+    date.setDate(date.getDate() + intervalWeeks * 7);
+  }
+  return date;
+}
+
+function renderBinPill() {
+  var pill = document.getElementById("bin-pill");
+  if (!BIN_SCHEDULE.length) return;
+
+  var next = BIN_SCHEDULE.map(function (bin) {
+    return { bin: bin, date: nextBinDate(bin.anchor, bin.intervalWeeks) };
+  });
+  var soonest = next.reduce(function (a, b) {
+    return b.date < a.date ? b : a;
+  });
+  var due = next.filter(function (n) {
+    return n.date.getTime() === soonest.date.getTime();
+  });
+
+  var icons = due
+    .map(function (n) {
+      return (
+        '<img class="bin-icon" src="bin-icons/bin_' +
+        n.bin.name.toLowerCase() +
+        '.svg" alt="' +
+        n.bin.name +
+        ' bin">'
+      );
+    })
+    .join("");
+
+  pill.innerHTML = icons;
+  pill.className = "status-pill bin-pill-visible";
+}
+
+renderBinPill();
+setInterval(renderBinPill, 1000 * 60 * 60);
+
 // --- Calendar: parses calendar.ics (fetched locally by fetch-calendar.sh, same-origin
 // to avoid iCloud's lack of CORS headers). Handles plain VEVENTs only, no RRULE expansion
 // (recurring events won't show) -- add that if it turns out to matter.
