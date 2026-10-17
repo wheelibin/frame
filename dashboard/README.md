@@ -83,12 +83,12 @@ track record, and it's what both current widgets do.
 ## Calendar (iCloud)
 
 ```sh
-./fetch-calendar.sh        # curls calendar-url.txt -> calendar.ics, same directory
+./fetch-calendar.sh        # curls CALENDAR_URL (dashboard.env) -> calendar.ics, same directory
 ```
 
 `app.js` fetches `calendar.ics` and parses `VEVENT` blocks itself — no library, since the
 subset needed (`SUMMARY`/`DTSTART`/`DTEND`, no recurring events) is small enough that one
-wasn't worth adding. `calendar-url.txt` and `calendar.ics` are both gitignored — the share
+wasn't worth adding. `dashboard.env` and `calendar.ics` are both gitignored — the share
 link and your actual schedule are both things to keep out of version control, even in a
 private repo.
 
@@ -140,6 +140,32 @@ On a real deployment, put both `fetch-*.sh` scripts on a cron wherever this ends
 so the `.json`/`.ics` files stay current without the frame needing to reach either service
 directly.
 
+## Home Assistant integration
+
+The shopping list, litter/fish trackers, and kitchen light widgets all go through
+`server.py`'s live relay — see `server.py`'s own header comment for why these need a live
+process rather than a cron-fetched file like calendar/weather. Configured via
+`dashboard.env` (gitignored, create it yourself, `KEY=value` per line, no quoting needed):
+
+```sh
+CALENDAR_URL=...                              # iCloud calendar share link
+HA_URL=http://your-ha-host:8123
+HA_TOKEN=...                                  # long-lived access token, Profile -> Security in HA
+HA_ENTITY_ID=todo.your_list                   # shopping list
+HA_LITTER_ENTITY_ID=input_datetime.litter_scooped
+HA_FISH_ENTITY_ID=input_datetime.fish_fed
+HA_DOG_FED_ENTITY_ID=                         # optional -- pill stays hidden until set
+HA_KITCHEN_LIGHT_ENTITY_ID=light.your_light
+HA_KITCHEN_ADAPTIVE_SWITCH_ENTITY_ID=switch.your_adaptive_lighting_switch
+```
+
+One file instead of separate `ha.local.json`/`calendar-url.txt` since both were "real
+runtime secrets the app needs to function" for the same reason — no point splitting them
+by format when they're the same kind of thing. `config.local.js` stays separate from this:
+it's loaded directly by the browser via `<script>`, not read by `server.py` at all, so it
+can't become an env var without `server.py` templating JS at request time instead of
+serving a static file.
+
 ## Dev loop
 
 ```sh
@@ -184,7 +210,7 @@ One-time setup, from your machine:
 
 ```sh
 # Points deploy.sh at your server -- gitignored, same reasoning as config.local.js/
-# ha.local.json below (real host/username, not something to commit):
+# dashboard.env below (real host/username, not something to commit):
 echo 'HOST=user@your-server' > dashboard/.deploy.env
 
 ./dashboard/deploy.sh   # first run also creates ~/apps/dashboard and builds the image
@@ -192,12 +218,11 @@ echo 'HOST=user@your-server' > dashboard/.deploy.env
 
 Then, on the server, create the gitignored local-config files directly in
 `~/apps/dashboard/` — they never get committed, so they have to exist independently on
-every machine that runs this (see the `config.local.js` and `ha.local.json` sections above
+every machine that runs this (see the `config.local.js` and `dashboard.env` sections above
 for what goes in each):
 
-- `config.local.js` (real lat/long)
-- `calendar-url.txt` (iCloud share link)
-- `ha.local.json` (HA url, long-lived access token, entity ids)
+- `config.local.js` (real lat/long, known people, bin schedule)
+- `dashboard.env` (calendar URL, HA url/token/entity ids)
 
 Then restart once so the container picks them up: `docker compose up -d --build` (or just
 re-run `./dashboard/deploy.sh` from your machine).

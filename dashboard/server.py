@@ -20,11 +20,31 @@ import urllib.request
 import urllib.error
 import urllib.parse
 
-HA_CONFIG_FILE = 'ha.local.json'
+ENV_FILE = 'dashboard.env'
+
+def load_env():
+    env = {}
+    with open(ENV_FILE) as f:
+        for line in f:
+            line = line.strip()
+            if not line or line.startswith('#') or '=' not in line:
+                continue
+            key, _, value = line.partition('=')
+            env[key.strip()] = value.strip()
+    return env
 
 def ha_config():
-    with open(HA_CONFIG_FILE) as f:
-        return json.load(f)
+    env = load_env()
+    return {
+        'url': env['HA_URL'],
+        'token': env['HA_TOKEN'],
+        'entity_id': env['HA_ENTITY_ID'],
+        'litter_entity_id': env['HA_LITTER_ENTITY_ID'],
+        'dog_fed_entity_id': env.get('HA_DOG_FED_ENTITY_ID', ''),
+        'fish_entity_id': env['HA_FISH_ENTITY_ID'],
+        'kitchen_light_entity_id': env['HA_KITCHEN_LIGHT_ENTITY_ID'],
+        'kitchen_adaptive_switch_entity_id': env['HA_KITCHEN_ADAPTIVE_SWITCH_ENTITY_ID'],
+    }
 
 def ha_call(domain, service, body, return_response=False):
     cfg = ha_config()
@@ -49,7 +69,7 @@ def ha_get_state(entity_id):
 
 # input_datetime-backed "last done X days ago, tap to reset" widgets -- /api/<name> reads
 # days-since, /api/<name>/<action> resets it to now. Route name maps to the config key
-# holding that tracker's entity_id in ha.local.json.
+# holding that tracker's entity_id in dashboard.env.
 TRACKERS = {
     'litter': ('litter_entity_id', 'scoop'),
     'fish': ('fish_entity_id', 'fed'),

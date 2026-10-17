@@ -19,7 +19,7 @@ fi
 REMOTE_APPS_DIR="~/apps"
 
 ssh "$HOST" "mkdir -p $REMOTE_APPS_DIR"
-COPYFILE_DISABLE=1 tar czf - --exclude='.git' --exclude='*.local.js' --exclude='*.local.json' -C .. dashboard \
+COPYFILE_DISABLE=1 tar czf - --exclude='.git' --exclude='*.local.js' --exclude='dashboard.env' --exclude='.deploy.env' -C .. dashboard \
   | ssh "$HOST" "tar xzf - -C $REMOTE_APPS_DIR"
 # Code is bind-mounted, not baked into the image (see docker-compose.yml) -- the image
 # never changes on a code-only edit, so plain "up -d --build" sees nothing to recreate
