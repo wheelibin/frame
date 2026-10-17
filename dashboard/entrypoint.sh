@@ -14,4 +14,4 @@ cd "$(dirname "$0")"
   done
 ) &
 
-exec python3 dev-server.py
+exec python3 server.py

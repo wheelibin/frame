@@ -1,20 +1,18 @@
 #!/usr/bin/env python3
-# Dev-only server: a no-cache static file server (see below) PLUS a small live relay to
-# Home Assistant for the shopping-list widget. Everything else in this project is a cron-
-# fetched static snapshot; this one widget needs live reads and writes (adding an item from
-# the kiosk's own touchscreen), so unlike calendar.ics/weather.json this can't just be a
-# file on disk -- something has to be running to make the authenticated HA call on demand.
+# The dashboard's app server: a no-cache static file server (see below) PLUS a live relay
+# to Home Assistant for the shopping-list/tracker/lighting widgets. Everything else in this
+# project is a cron-fetched static snapshot; those widgets need live reads and writes
+# (adding a shopping item, dragging the brightness slider, from the kiosk's own
+# touchscreen), so unlike calendar.ics/weather.json they can't just be a file on disk --
+# something has to be running to make the authenticated HA call on demand. Runs the same in
+# local dev (via dev-deploy.sh) and in production (via entrypoint.sh/docker-compose.yml) --
+# there's no separate "real" server, this is it.
 #
 # Cache-Control: no-store on every response: the frame's WebView caches each linked
 # resource (style.css, app.js, ...) independently by its own URL, not tied to the page's
 # URL at all -- cache-busting the page's URL on reload doesn't touch them, and it's easy to
 # end up editing a file, reloading, and silently looking at a stale cached version with no
 # indication anything's wrong.
-#
-# Not meant for the real deployment as-is -- wherever this ends up hosted needs something
-# equivalent running continuously (this script works fine as that, or port the two HA
-# routes to whatever that host actually runs). The static-file serving can be anything
-# once there's no HA widget to support; the HA relay specifically needs a live process.
 import datetime
 import http.server
 import json

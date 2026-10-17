@@ -500,11 +500,11 @@ function loadWeather() {
 loadWeather();
 setInterval(loadWeather, 1000 * 60 * 15);
 
-// --- Shopping list: live reads/writes through dev-server.py's /api/shopping-list relay
+// --- Shopping list: live reads/writes through server.py's /api/shopping-list relay
 // to Home Assistant's todo integration -- not a cron-fetched snapshot like calendar/
 // weather, since adding an item needs to actually reach HA, and whatever's added via HA
 // itself (phone, voice assistant) should show up here too. Whatever ends up hosting this
-// for real needs an equivalent live relay running continuously; see dev-server.py's own
+// for real needs an equivalent live relay running continuously; see server.py's own
 // comment for why a plain static-file host can't do this one.
 
 function escapeHtml(s) {
@@ -596,7 +596,7 @@ function daysAgoText(days) {
 }
 
 // input_datetime-backed "last done X days ago, tap to reset" pills -- mirrors
-// dev-server.py's TRACKERS dict (name -> GET /api/<name>, POST /api/<name>/<data-action>).
+// server.py's TRACKERS dict (name -> GET /api/<name>, POST /api/<name>/<data-action>).
 function setupTracker(name, valueId, btnId) {
   var value = document.getElementById(valueId);
   var btn = document.getElementById(btnId);

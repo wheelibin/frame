@@ -147,32 +147,32 @@ directly.
 ```
 
 Edit, save, re-run — no rebuild, no reinstall. Safe to re-run repeatedly: starts
-`dev-server.py` only if it isn't already running, re-tunnels over USB (a no-op if already
+`server.py` only if it isn't already running, re-tunnels over USB (a no-op if already
 set up), and reloads the kiosk. Under the hood it's just:
 ```sh
-python3 dev-server.py &                           # serve this directory, no caching (see below)
+python3 server.py &                           # serve this directory, no caching (see below)
 adb -d reverse tcp:8765 tcp:8765                   # tunnel it over USB (redo after every reboot)
 adb -d shell am start -n com.wesbos.homehq/.MainActivity --es url http://localhost:8765/
 ```
 
-**Use `dev-server.py`, not plain `python3 -m http.server`.** The WebView caches every
+**Use `server.py`, not plain `python3 -m http.server`.** The WebView caches every
 linked resource (`style.css`, `app.js`, ...) independently **by its own URL**, not tied to
 the page's URL at all — cache-busting the page's URL on reload does nothing for them. Hit
 this for real: made several CSS-only edits in a row, reloaded each time, and was looking at
 a stale cached stylesheet the entire time with zero indication anything was wrong (the
-page URL changing on reload masked it completely). `dev-server.py` is identical to the
+page URL changing on reload masked it completely). `server.py` is identical to the
 stdlib server except it sends `Cache-Control: no-store` on every response, which fixes
 this at the source instead of needing to cache-bust every resource by hand. Separately:
 pointing the kiosk at `http://localhost:8765/` across two totally different local servers
 in one session (this dashboard, then an unrelated experiment) produced a white screen from
 a *different* stale-cache angle — the WebView served the other server's cached
 `index.html`. A `?t=$(date +%s)` query string on the page URL itself still handles that
-specific case if it ever recurs; `dev-server.py` handles the rest.
+specific case if it ever recurs; `server.py` handles the rest.
 
 ## Deploying for real
 
 This can't just be static files on something like Cloudflare Pages anymore. The shopping
-list, litter, and fish widgets go through `dev-server.py`'s live relay to Home Assistant
+list, litter, and fish widgets go through `server.py`'s live relay to Home Assistant
 (reads **and** writes, with the auth token kept server-side) — that needs a process running
 continuously, not a one-time file copy. Calendar/weather are still just cron-fetched files,
 but they're cheap to run alongside the relay rather than set up separately.
@@ -203,7 +203,7 @@ Then restart once so the container picks them up: `docker compose up -d --build`
 re-run `./dashboard/deploy.sh` from your machine).
 
 The container's `entrypoint.sh` runs `fetch-calendar.sh`/`fetch-weather.sh` once on
-startup and then every 15 minutes in the background, and runs `dev-server.py` in the
+startup and then every 15 minutes in the background, and runs `server.py` in the
 foreground as the main process — no separate cron needed. `docker-compose.yml` bind-mounts
 this directory into the container rather than baking it into the image, so shipping a
 change after the one-time setup above is just:
