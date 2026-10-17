@@ -95,6 +95,19 @@ class NoStoreHandler(http.server.SimpleHTTPRequestHandler):
             except Exception as e:
                 self.send_json(502, {'error': str(e)})
             return
+        if self.path == '/api/kitchen-light':
+            try:
+                cfg = ha_config()
+                light_state = ha_get_state(cfg['kitchen_light_entity_id'])
+                auto_state = ha_get_state(cfg['kitchen_adaptive_switch_entity_id'])
+                brightness = light_state['attributes'].get('brightness') or 0
+                self.send_json(200, {
+                    'brightness_pct': round(brightness / 255 * 100),
+                    'auto': auto_state['state'] == 'on',
+                })
+            except Exception as e:
+                self.send_json(502, {'error': str(e)})
+            return
         if self.path == '/api/dog-fed':
             try:
                 cfg = ha_config()
@@ -132,6 +145,30 @@ class NoStoreHandler(http.server.SimpleHTTPRequestHandler):
                 now_str = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                 ha_call('input_datetime', 'set_datetime',
                     {'entity_id': cfg[entity_key], 'datetime': now_str})
+                self.send_json(200, {'ok': True})
+            except Exception as e:
+                self.send_json(502, {'error': str(e)})
+            return
+        if self.path == '/api/kitchen-light/brightness':
+            length = int(self.headers.get('Content-Length', 0))
+            try:
+                body = json.loads(self.rfile.read(length))
+                pct = int(body.get('brightness_pct'))
+                cfg = ha_config()
+                # Adaptive Lighting keeps overriding manual brightness unless its switch
+                # is off first -- disabling it here, not relying on it to notice the
+                # manual change itself, is what the user asked for.
+                ha_call('switch', 'turn_off', {'entity_id': cfg['kitchen_adaptive_switch_entity_id']})
+                ha_call('light', 'turn_on',
+                    {'entity_id': cfg['kitchen_light_entity_id'], 'brightness_pct': pct})
+                self.send_json(200, {'ok': True})
+            except Exception as e:
+                self.send_json(502, {'error': str(e)})
+            return
+        if self.path == '/api/kitchen-light/auto':
+            try:
+                cfg = ha_config()
+                ha_call('switch', 'turn_on', {'entity_id': cfg['kitchen_adaptive_switch_entity_id']})
                 self.send_json(200, {'ok': True})
             except Exception as e:
                 self.send_json(502, {'error': str(e)})

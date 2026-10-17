@@ -604,5 +604,59 @@ setupTracker('fish', 'fish-value', 'fish-fed-btn');
 loadDogFed();
 setInterval(loadDogFed, 1000 * 60 * 2);
 
+// Kitchen/Sunroom light -- dragging the slider turns off Adaptive Lighting's switch
+// first (it otherwise keeps overriding manual brightness) then sets brightness; "Auto"
+// hands control back to Adaptive Lighting. The slider only posts to HA on release
+// ('change', not 'input') so dragging doesn't spam a service call per pixel moved.
+var kitchenSlider = document.getElementById('kitchen-brightness');
+var kitchenAutoBtn = document.getElementById('kitchen-auto-btn');
+
+function loadKitchenLight() {
+  fetch('/api/kitchen-light', { cache: 'no-store' }).then(function (res) {
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    return res.json();
+  }).then(function (data) {
+    if (data.error) throw new Error(data.error);
+    kitchenSlider.value = data.brightness_pct;
+    kitchenAutoBtn.textContent = data.auto ? 'Auto: ON' : 'Auto: OFF';
+  }).catch(function () {
+    kitchenAutoBtn.textContent = 'Auto: ?';
+  });
+}
+
+kitchenSlider.addEventListener('change', function () {
+  fetch('/api/kitchen-light/brightness', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ brightness_pct: parseInt(kitchenSlider.value, 10) })
+  }).then(function (res) {
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    return res.json();
+  }).then(function (data) {
+    if (data.error) throw new Error(data.error);
+    loadKitchenLight();
+  }).catch(function (err) {
+    alert('Could not set brightness: ' + err.message);
+  });
+});
+
+kitchenAutoBtn.addEventListener('click', function () {
+  kitchenAutoBtn.disabled = true;
+  fetch('/api/kitchen-light/auto', { method: 'POST' }).then(function (res) {
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    return res.json();
+  }).then(function (data) {
+    if (data.error) throw new Error(data.error);
+    loadKitchenLight();
+  }).catch(function (err) {
+    alert('Could not re-enable auto: ' + err.message);
+  }).then(function () {
+    kitchenAutoBtn.disabled = false;
+  });
+});
+
+loadKitchenLight();
+setInterval(loadKitchenLight, 1000 * 60 * 2);
+
 loadShoppingList();
 setInterval(loadShoppingList, 1000 * 60 * 2);

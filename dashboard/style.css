@@ -1,4 +1,8 @@
-* { margin: 0; padding: 0; box-sizing: border-box; }
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
 
 /* Modern look built entirely from gradients, shadows and radius -- no backdrop-filter
    (frosted glass blur), which needs Chrome 76+ and this WebView is ~44. Depth comes from
@@ -16,28 +20,28 @@
    declared below as the same default instance on this WebView. Forced static files by
    requesting with an old Chrome User-Agent string instead. */
 @font-face {
-  font-family: 'Inter';
+  font-family: "Inter";
   font-weight: 200;
   font-style: normal;
-  src: url('fonts/inter-200.woff2') format('woff2');
+  src: url("fonts/inter-200.woff2") format("woff2");
 }
 @font-face {
-  font-family: 'Inter';
+  font-family: "Inter";
   font-weight: 500;
   font-style: normal;
-  src: url('fonts/inter-500.woff2') format('woff2');
+  src: url("fonts/inter-500.woff2") format("woff2");
 }
 @font-face {
-  font-family: 'Inter';
+  font-family: "Inter";
   font-weight: 600;
   font-style: normal;
-  src: url('fonts/inter-600.woff2') format('woff2');
+  src: url("fonts/inter-600.woff2") format("woff2");
 }
 @font-face {
-  font-family: 'Inter';
+  font-family: "Inter";
   font-weight: 700;
   font-style: normal;
-  src: url('fonts/inter-700.woff2') format('woff2');
+  src: url("fonts/inter-700.woff2") format("woff2");
 }
 
 body {
@@ -48,11 +52,28 @@ body {
      layering plain radial-gradient (supported long before this WebView's era) gives a
      sense of depth/light sources without needing blur. */
   background-image:
-    radial-gradient(ellipse 900px 600px at 10% -10%, rgba(130, 110, 255, 0.16), transparent 60%),
-    radial-gradient(ellipse 800px 500px at 95% 10%, rgba(255, 150, 90, 0.10), transparent 60%),
-    radial-gradient(ellipse 700px 500px at 50% 110%, rgba(60, 200, 170, 0.10), transparent 60%);
+    radial-gradient(
+      ellipse 900px 600px at 10% -10%,
+      rgba(130, 110, 255, 0.16),
+      transparent 60%
+    ),
+    radial-gradient(
+      ellipse 800px 500px at 95% 10%,
+      rgba(255, 150, 90, 0.1),
+      transparent 60%
+    ),
+    radial-gradient(
+      ellipse 700px 500px at 50% 110%,
+      rgba(60, 200, 170, 0.1),
+      transparent 60%
+    );
   color: #eee;
-  font-family: 'Inter', -apple-system, Verdana, Arial, sans-serif;
+  font-family:
+    "Inter",
+    -apple-system,
+    Verdana,
+    Arial,
+    sans-serif;
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -71,9 +92,12 @@ header {
   align-items: baseline;
 }
 
-.header-status {
+.controls-row {
+  flex-shrink: 0;
+  margin-bottom: 24px;
   display: flex;
   align-items: center;
+  justify-content: space-between;
 }
 
 .status-pill {
@@ -84,12 +108,47 @@ header {
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 999px;
   padding: 10px 20px;
-  margin-left: 14px;
+  margin-right: 14px;
   display: flex;
   align-items: center;
 }
 
-#dog-fed-value, #litter-value, #fish-value {
+.controls-row .status-pill:last-child {
+  margin-right: 0;
+}
+
+.lighting-label {
+  margin-right: 16px;
+}
+
+/* Styled with vendor-prefixed pseudo-elements, not a single cross-browser rule -- range
+   input thumb/track styling has never had one, and this old WebView only needs the
+   -webkit- form anyway. */
+#kitchen-brightness {
+  width: 220px;
+  margin-right: 14px;
+  -webkit-appearance: none;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+#kitchen-brightness::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: linear-gradient(
+    135deg,
+    rgba(255, 200, 110, 1),
+    rgba(255, 170, 80, 0.9)
+  );
+  border: 2px solid rgba(255, 255, 255, 0.5);
+}
+
+#dog-fed-value,
+#litter-value,
+#fish-value {
   color: #fff;
   margin-left: 6px;
 }
@@ -99,7 +158,11 @@ header {
   font-size: 14px;
   font-weight: 600;
   color: #e8d9ff;
-  background: linear-gradient(135deg, rgba(170, 110, 255, 0.35), rgba(170, 110, 255, 0.15));
+  background: linear-gradient(
+    135deg,
+    rgba(170, 110, 255, 0.35),
+    rgba(170, 110, 255, 0.15)
+  );
   border: 1px solid rgba(170, 110, 255, 0.5);
   border-radius: 999px;
   padding: 7px 16px;
@@ -152,7 +215,11 @@ header {
      in CSS, sidesteps that entirely. */
   width: 576px;
   margin: 0 32px 24px 0;
-  background: linear-gradient(165deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.02));
+  background: linear-gradient(
+    165deg,
+    rgba(255, 255, 255, 0.07),
+    rgba(255, 255, 255, 0.02)
+  );
   border-radius: 28px;
   padding: 22px 32px;
   box-shadow:
@@ -240,7 +307,11 @@ header {
   font-size: 18px;
   font-weight: 600;
   color: #e8d9ff;
-  background: linear-gradient(135deg, rgba(170, 110, 255, 0.35), rgba(170, 110, 255, 0.15));
+  background: linear-gradient(
+    135deg,
+    rgba(170, 110, 255, 0.35),
+    rgba(170, 110, 255, 0.15)
+  );
   border: 1px solid rgba(170, 110, 255, 0.5);
   border-radius: 12px;
   padding: 10px 22px;
@@ -300,7 +371,11 @@ header {
   height: 84px;
   flex-shrink: 0;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(255, 180, 90, 0.22), rgba(255, 180, 90, 0.04) 70%);
+  background: radial-gradient(
+    circle,
+    rgba(255, 180, 90, 0.22),
+    rgba(255, 180, 90, 0.04) 70%
+  );
   display: flex;
   align-items: center;
   justify-content: center;
@@ -330,7 +405,11 @@ header {
 }
 
 #rain-alert.rain-urgent {
-  background: linear-gradient(135deg, rgba(90, 160, 255, 0.28), rgba(90, 160, 255, 0.1));
+  background: linear-gradient(
+    135deg,
+    rgba(90, 160, 255, 0.28),
+    rgba(90, 160, 255, 0.1)
+  );
   color: #a9d4ff;
 }
 
@@ -351,7 +430,11 @@ header {
 }
 
 #coat-alert.coat-needed {
-  background: linear-gradient(135deg, rgba(255, 170, 80, 0.28), rgba(255, 170, 80, 0.1));
+  background: linear-gradient(
+    135deg,
+    rgba(255, 170, 80, 0.28),
+    rgba(255, 170, 80, 0.1)
+  );
   color: #ffd1a3;
 }
 
