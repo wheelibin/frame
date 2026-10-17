@@ -688,7 +688,11 @@ kitchenSlider.addEventListener('change', function () {
     return res.json();
   }).then(function (data) {
     if (data.error) throw new Error(data.error);
-    loadKitchenLight();
+    // No re-fetch here -- the slider already shows exactly what we just told the light
+    // to do. Re-reading immediately races the group light's own state update (it
+    // aggregates ~24 individual Hue lights, confirmed to lag the command by up to ~1s),
+    // which was snapping the slider back to the stale pre-change brightness.
+    kitchenAutoBtn.textContent = 'Auto: OFF';
   }).catch(function (err) {
     alert('Could not set brightness: ' + err.message);
   });
@@ -701,7 +705,11 @@ kitchenAutoBtn.addEventListener('click', function () {
     return res.json();
   }).then(function (data) {
     if (data.error) throw new Error(data.error);
-    loadKitchenLight();
+    kitchenAutoBtn.textContent = 'Auto: ON';
+    // Adaptive Lighting doesn't apply its own brightness the instant the switch turns
+    // back on -- confirmed empirically, it takes a couple of seconds to actually push a
+    // value to the light. Fetching immediately just re-reads the old manual brightness.
+    setTimeout(loadKitchenLight, 2500);
   }).catch(function (err) {
     alert('Could not re-enable auto: ' + err.message);
   }).then(function () {
