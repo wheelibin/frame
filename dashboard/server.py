@@ -41,6 +41,8 @@ def ha_config():
         'entity_id': env['HA_ENTITY_ID'],
         'litter_entity_id': env['HA_LITTER_ENTITY_ID'],
         'dog_fed_entity_id': env.get('HA_DOG_FED_ENTITY_ID', ''),
+        'dog_fed_morning_window': env.get('HA_DOG_FED_MORNING_WINDOW', ''),
+        'dog_fed_afternoon_window': env.get('HA_DOG_FED_AFTERNOON_WINDOW', ''),
         'fish_entity_id': env['HA_FISH_ENTITY_ID'],
         'kitchen_light_entity_id': env['HA_KITCHEN_LIGHT_ENTITY_ID'],
         'kitchen_adaptive_switch_entity_id': env['HA_KITCHEN_ADAPTIVE_SWITCH_ENTITY_ID'],
@@ -66,6 +68,40 @@ def ha_get_state(entity_id):
         headers={'Authorization': 'Bearer ' + cfg['token']})
     with urllib.request.urlopen(req, timeout=5) as res:
         return json.loads(res.read().decode())
+
+# Current state alone can't say "was the dog fed this morning" -- the sensor flips back to
+# closed the moment the lid shuts, so this reads the day's history of state changes instead.
+def ha_get_history(entity_id, start_dt):
+    cfg = ha_config()
+    url = (cfg['url'] + '/api/history/period/' + urllib.parse.quote(start_dt.isoformat())
+        + '?filter_entity_id=' + urllib.parse.quote(entity_id)
+        + '&minimal_response&no_attributes')
+    req = urllib.request.Request(url, headers={'Authorization': 'Bearer ' + cfg['token']})
+    with urllib.request.urlopen(req, timeout=5) as res:
+        return json.loads(res.read().decode())
+
+def parse_window(window_str, now):
+    start_s, end_s = window_str.split('-')
+    sh, sm = (int(x) for x in start_s.split(':'))
+    eh, em = (int(x) for x in end_s.split(':'))
+    start = now.replace(hour=sh, minute=sm, second=0, microsecond=0)
+    end = now.replace(hour=eh, minute=em, second=0, microsecond=0)
+    return start, end
+
+# "fed" if the container was opened at any point inside the window; "pending" before the
+# window opens; "missed" only once the window has closed with no open event in it -- avoids
+# flagging the PM feed as missed first thing in the morning.
+def window_is_active(window_str, now):
+    start, end = parse_window(window_str, now)
+    return start <= now <= end
+
+def feed_window_status(window_str, open_times, now):
+    start, end = parse_window(window_str, now)
+    if any(start <= t <= end for t in open_times):
+        return 'fed'
+    if now > end:
+        return 'missed'
+    return 'pending'
 
 # input_datetime-backed "last done X days ago, tap to reset" widgets -- /api/<name> reads
 # days-since, /api/<name>/<action> resets it to now. Route name maps to the config key
@@ -133,8 +169,27 @@ class NoStoreHandler(http.server.SimpleHTTPRequestHandler):
                 if not entity_id:
                     self.send_json(200, {'configured': False})
                     return
-                state = ha_get_state(entity_id)
-                self.send_json(200, {'configured': True, 'state': state['state']})
+                if not cfg['dog_fed_morning_window'] or not cfg['dog_fed_afternoon_window']:
+                    raise ValueError('HA_DOG_FED_MORNING_WINDOW / HA_DOG_FED_AFTERNOON_WINDOW not set in dashboard.env')
+                now = datetime.datetime.now().astimezone()
+                today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+                history = ha_get_history(entity_id, today_start)
+                events = history[0] if history else []
+                open_times = [datetime.datetime.fromisoformat(e['last_changed']).astimezone()
+                    for e in events if e['state'] == 'on']
+                morning = feed_window_status(cfg['dog_fed_morning_window'], open_times, now)
+                afternoon = feed_window_status(cfg['dog_fed_afternoon_window'], open_times, now)
+                # Tells the client to poll fast -- the whole point is knowing within a couple
+                # of minutes, not whenever the slow background poll happens to land -- while
+                # a feed is still outstanding and due right now. No point polling fast once
+                # that window's already fed, or before/after it's even open.
+                self.send_json(200, {
+                    'configured': True,
+                    'morning': morning,
+                    'afternoon': afternoon,
+                    'in_window': (morning == 'pending' and window_is_active(cfg['dog_fed_morning_window'], now))
+                        or (afternoon == 'pending' and window_is_active(cfg['dog_fed_afternoon_window'], now)),
+                })
             except Exception as e:
                 self.send_json(502, {'error': str(e)})
             return

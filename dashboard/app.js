@@ -633,8 +633,25 @@ function setupTracker(name, valueId, btnId) {
   setInterval(load, 1000 * 60 * 5);
 }
 
-// Dog-fed sensor isn't set up yet -- hide the pill until ha.local.json has a
-// dog_fed_entity_id configured, so this is a no-op until then.
+// Status comes from server.py's /api/dog-fed, which derives it from the food container
+// sensor's open/close history against the configured morning/afternoon windows -- not from
+// the sensor's current state, which only ever says "open" or "closed right now".
+var DOG_FED_ICONS = { pending: '&ndash;', fed: '&#9989;', missed: '&#10060;' };
+
+function renderDogFedSlot(id, label, status) {
+  var slot = document.getElementById(id);
+  slot.className = 'dog-fed-slot status-' + status;
+  slot.innerHTML = label + ' ' + (DOG_FED_ICONS[status] || '?');
+}
+
+// Self-rescheduling rather than a fixed setInterval, so the poll rate can change: fast
+// while a feed is due right now (server says in_window), slow otherwise -- nothing can
+// change outside a window, so there's no reason to hit HA's history API every 20s all day.
+var DOG_FED_FAST_POLL_MS = 1000 * 20;
+var DOG_FED_SLOW_POLL_MS = 1000 * 60 * 15;
+
+// Hides the pill until dashboard.env has HA_DOG_FED_ENTITY_ID configured, so this is a
+// no-op until then.
 function loadDogFed() {
   var pill = document.getElementById('dog-fed-pill');
   fetch('/api/dog-fed', { cache: 'no-store' }).then(function (res) {
@@ -642,13 +659,17 @@ function loadDogFed() {
     return res.json();
   }).then(function (data) {
     if (!data.configured) {
-      pill.style.display = 'none';
+      pill.className = 'status-pill';
+      setTimeout(loadDogFed, DOG_FED_SLOW_POLL_MS);
       return;
     }
-    pill.style.display = '';
-    document.getElementById('dog-fed-value').textContent = data.state;
+    pill.className = 'status-pill dog-fed-pill-visible';
+    renderDogFedSlot('dog-fed-morning', 'AM', data.morning);
+    renderDogFedSlot('dog-fed-afternoon', 'PM', data.afternoon);
+    setTimeout(loadDogFed, data.in_window ? DOG_FED_FAST_POLL_MS : DOG_FED_SLOW_POLL_MS);
   }).catch(function () {
-    pill.style.display = 'none';
+    pill.className = 'status-pill';
+    setTimeout(loadDogFed, DOG_FED_SLOW_POLL_MS);
   });
 }
 
@@ -656,7 +677,6 @@ setupTracker('litter', 'litter-value', 'litter-scoop-btn');
 setupTracker('fish', 'fish-value', 'fish-fed-btn');
 
 loadDogFed();
-setInterval(loadDogFed, 1000 * 60 * 2);
 
 // Kitchen/Sunroom light -- dragging the slider turns off Adaptive Lighting's switch
 // first (it otherwise keeps overriding manual brightness) then sets brightness; "Auto"

@@ -100,6 +100,46 @@ header {
   display: flex;
 }
 
+.header-right {
+  display: flex;
+  align-items: center;
+}
+
+#dog-fed-pill {
+  display: none;
+}
+
+#dog-fed-pill.dog-fed-pill-visible {
+  display: flex;
+}
+
+.paw-icon {
+  width: 20px;
+  height: 20px;
+  margin-right: 8px;
+  flex-shrink: 0;
+}
+
+.dog-fed-slot {
+  margin-right: 10px;
+}
+
+.dog-fed-slot:last-child {
+  margin-right: 0;
+}
+
+.dog-fed-slot.status-pending {
+  color: #7b8294;
+}
+
+.dog-fed-slot.status-fed {
+  color: #4caf7d;
+}
+
+.dog-fed-slot.status-missed {
+  color: #e85d5d;
+}
+
 .bin-icon {
   width: 24px;
   height: 24px;

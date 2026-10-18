@@ -216,13 +216,11 @@ echo 'HOST=user@your-server' > dashboard/.deploy.env
 ./dashboard/deploy.sh   # first run also creates ~/apps/dashboard and builds the image
 ```
 
-Then, on the server, create the gitignored local-config files directly in
-`~/apps/dashboard/` — they never get committed, so they have to exist independently on
-every machine that runs this (see the `config.local.js` and `dashboard.env` sections above
-for what goes in each):
-
-- `config.local.js` (real lat/long, known people, bin schedule)
-- `dashboard.env` (calendar URL, HA url/token/entity ids)
+`dashboard.env` and `config.local.js` are both gitignored (real HA token, real lat/long,
+real bin schedule — not something to commit) but still deployed by `deploy.sh`: there's
+nothing secret-looking about shipping them to the one server that runs this, so create them
+locally once (see their sections above for what goes in each) and let every deploy carry
+them over, rather than maintaining a separate copy by hand on the server.
 
 Then restart once so the container picks them up: `docker compose up -d --build` (or just
 re-run `./dashboard/deploy.sh` from your machine).
@@ -238,9 +236,9 @@ change after the one-time setup above is just:
 ```
 
 tar over ssh, not rsync — the server doesn't have rsync installed. Excludes `.git` and
-the gitignored local-config files (those stay put on the server, edited there directly if
-they ever need to change) and re-runs `docker compose up -d --build` so a `Dockerfile`
-change picks up too, not just the code.
+`.deploy.env` (that one's local-machine-only, pointing deploy.sh at the server — the server
+itself never needs it) and re-runs `docker compose up -d --build` so a `Dockerfile` change
+picks up too, not just the code.
 
 Then point the kiosk at the real URL:
 

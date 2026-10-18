@@ -12,14 +12,20 @@
       <div id="clock"></div>
       <div id="date"></div>
     </div>
-    <span class="status-pill" id="bin-pill"></span>
-  </header>
-  <main class="widgets">
-    <div class="controls-row">
+    <div class="header-right">
+      <span class="status-pill" id="bin-pill"></span>
       <!-- Text labels, not icons -- the obvious emoji here (dog U+1F415, paw U+1F43E) are
            outside the BMP, same class of issue as the shopping cart icon elsewhere in this
            project, and would render as tofu boxes on this device's font. -->
-      <span class="status-pill" id="dog-fed-pill">Dog fed: <span id="dog-fed-value">&ndash;</span></span>
+      <span class="status-pill" id="dog-fed-pill">
+        <img class="paw-icon" src="paw-icon.svg" alt="">
+        <span class="dog-fed-slot" id="dog-fed-morning">AM</span>
+        <span class="dog-fed-slot" id="dog-fed-afternoon">PM</span>
+      </span>
+    </div>
+  </header>
+  <main class="widgets">
+    <div class="controls-row">
       <span class="status-pill" id="fish-pill">Fish fed: <span id="fish-value">&hellip;</span><button class="pill-action-btn" id="fish-fed-btn" data-action="fed">Fed</button></span>
       <span class="status-pill" id="litter-pill">Litter: <span id="litter-value">&hellip;</span><button class="pill-action-btn" id="litter-scoop-btn" data-action="scoop">Scooped</button></span>
       <span class="status-pill lighting-control">

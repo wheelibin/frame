@@ -7,3 +7,9 @@ services:
       - "8765:8765"
     volumes:
       - .:/app
+      # Container defaults to UTC regardless of the host's tz -- confirmed to desync the
+      # dog-fed morning/afternoon window math from real local time by the DST offset
+      # (container thought it was an hour earlier than the host during BST). Bind-mounting
+      # the host's tz file, not a hardcoded TZ=Europe/London, so this keeps tracking
+      # whatever the host is actually set to (including future DST transitions) for free.
+      - /etc/localtime:/etc/localtime:ro
