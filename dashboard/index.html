@@ -38,12 +38,14 @@
       <section class="widget widget-weather">
         <h2><span class="widget-icon" id="weather-icon">&#9728;</span>Weather</h2>
         <div id="weather"><p class="empty">Loading&hellip;</p></div>
-        <div id="rain-alert"></div>
-        <div id="coat-alert"></div>
+        <div class="alerts-row">
+          <div id="rain-alert"></div>
+          <div id="coat-alert"></div>
+        </div>
       </section>
       <section class="widget widget-shopping">
-        <!-- Trigram-for-heaven glyph (U+2630, same Misc Symbols block as the weather/today
-             icons) used as a plain list icon -- the shopping cart emoji (U+1F6D2) is outside
+        <!-- Trigram-for-heaven glyph (U+2630, same Misc Symbols block as the weather icon)
+             used as a plain list icon -- the shopping cart emoji (U+1F6D2) is outside
              the BMP and didn't render on this device's font, same class of issue as the
              ticket emoji elsewhere in this project. -->
         <h2><span class="widget-icon">&#9776;</span>Shopping List</h2>
@@ -54,10 +56,7 @@
         <ul id="shopping-items"><li class="empty">Loading&hellip;</li></ul>
       </section>
     </div>
-    <section class="widget widget-today">
-      <h2><span class="widget-icon">&#9989;</span>Today</h2>
-      <div id="today-people"><p class="empty">Loading&hellip;</p></div>
-    </section>
+    <div id="today-people"><p class="empty">Loading&hellip;</p></div>
   </main>
   <script src="config.js"></script>
   <script src="config.local.js"></script>

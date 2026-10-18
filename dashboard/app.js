@@ -248,69 +248,121 @@ function isToday(date) {
   );
 }
 
-function renderTodayPeople(taggedEvents) {
-  var container = document.getElementById("today-people");
-  if (taggedEvents.length === 0) {
-    container.innerHTML = '<p class="empty">Nothing tagged for today</p>';
-    return;
-  }
+function isTomorrow(date) {
+  var now = new Date();
+  now.setDate(now.getDate() + 1);
+  return (
+    date.getFullYear() === now.getFullYear() &&
+    date.getMonth() === now.getMonth() &&
+    date.getDate() === now.getDate()
+  );
+}
 
+function groupByPerson(items) {
   var byPerson = {};
-  var order = [];
-  taggedEvents.forEach(function (item) {
-    if (!byPerson[item.name]) {
-      byPerson[item.name] = [];
-      order.push(item.name);
-    }
+  items.forEach(function (item) {
+    if (!byPerson[item.name]) byPerson[item.name] = [];
     byPerson[item.name].push(item);
   });
-  // Alphabetical, not calendar order -- consistent regardless of the order events
-  // happen to appear in the ICS feed.
-  order.sort();
+  return byPerson;
+}
 
-  container.innerHTML = order
-    .map(function (name) {
-      var items = byPerson[name]
-        .slice()
-        .sort(function (a, b) {
-          return a.category.localeCompare(b.category);
-        })
-        .map(function (item) {
-          var icon = categoryIcon(item.category);
-          var inner = icon
-            ? '<span class="category-icon">' + icon + "</span>"
-            : '<span class="category-dot" style="background:' +
-              categoryColor(item.category) +
-              '"></span>';
-          // Text wrapped in its own inline-block, centered by the <li>'s text-align:center
-          // based purely on the text's own width -- the marker is then positioned outside
-          // that box (not inside it), so it doesn't pull the centering off to one side.
-          return (
-            '<li><span class="item-text"><span class="category-marker">' +
-            inner +
-            "</span>" +
-            (item.text || "(untitled)") +
-            "</span></li>"
-          );
-        })
-        .join("");
+function renderItemList(items) {
+  return items
+    .slice()
+    .sort(function (a, b) {
+      return a.category.localeCompare(b.category);
+    })
+    .map(function (item) {
+      var icon = categoryIcon(item.category);
+      var inner = icon
+        ? '<span class="category-icon">' + icon + "</span>"
+        : '<span class="category-dot" style="background:' +
+          categoryColor(item.category) +
+          '"></span>';
+      // Text wrapped in its own inline-block, centered by the <li>'s text-align:center
+      // based purely on the text's own width -- the marker is then positioned outside
+      // that box (not inside it), so it doesn't pull the centering off to one side.
       return (
-        '<div class="person-column"><div class="person-name" style="' +
-        personPillStyle(name) +
-        '">' +
-        capitalize(name) +
-        "</div><ul>" +
-        items +
-        "</ul></div>"
+        '<li><span class="item-text"><span class="category-marker">' +
+        inner +
+        "</span>" +
+        (item.text || "(untitled)") +
+        "</span></li>"
       );
     })
     .join("");
 }
 
+function renderTodayPeople(todayItems, tomorrowItems) {
+  var container = document.getElementById("today-people");
+  if (todayItems.length === 0 && tomorrowItems.length === 0) {
+    container.innerHTML =
+      '<p class="empty">Nothing tagged for today or tomorrow</p>';
+    return;
+  }
+
+  var byToday = groupByPerson(todayItems);
+  var byTomorrow = groupByPerson(tomorrowItems);
+  var names = {};
+  Object.keys(byToday).forEach(function (n) {
+    names[n] = true;
+  });
+  Object.keys(byTomorrow).forEach(function (n) {
+    names[n] = true;
+  });
+  // Alphabetical, not calendar order -- consistent regardless of the order events
+  // happen to appear in the ICS feed.
+  var order = Object.keys(names).sort();
+
+  container.innerHTML = order
+    .map(function (name) {
+      // Always rendered, even with no today items for this person -- it still needs to
+      // take part in the max-height equalization below, so every card's Tomorrow section
+      // (if any) lines up on the same row regardless of how many today items came before
+      // it in each card.
+      var todaySection =
+        '<ul class="today-list">' +
+        (byToday[name] ? renderItemList(byToday[name]) : "") +
+        "</ul>";
+      var tomorrowSection = byTomorrow[name]
+        ? '<div class="tomorrow-section"><div class="tomorrow-label">Tomorrow</div><ul>' +
+          renderItemList(byTomorrow[name]) +
+          "</ul></div>"
+        : "";
+      return (
+        '<div class="person-column"><div class="person-name" style="' +
+        personPillStyle(name) +
+        '">' +
+        capitalize(name) +
+        "</div>" +
+        todaySection +
+        tomorrowSection +
+        "</div>"
+      );
+    })
+    .join("");
+
+  // Cards are independent flex columns -- nothing ties one person's today-list height to
+  // another's, so with different item counts the Tomorrow divider would start at a
+  // different row in each card. CSS Grid subgrid would solve this declaratively, but
+  // needs Chrome 117+, way past this WebView's ~44. Measuring and pinning the tallest
+  // .today-list as a min-height on all of them instead -- plain DOM measurement, same
+  // "compute it by hand in JS" approach as the 576px widget width elsewhere in this file.
+  var todayLists = container.querySelectorAll(".today-list");
+  var maxTodayHeight = 0;
+  for (var i = 0; i < todayLists.length; i++) {
+    maxTodayHeight = Math.max(maxTodayHeight, todayLists[i].offsetHeight);
+  }
+  for (var j = 0; j < todayLists.length; j++) {
+    todayLists[j].style.minHeight = maxTodayHeight + "px";
+  }
+}
+
 // Upcoming (non-today, untagged) events no longer have a widget of their own -- replaced
-// by the shopping list -- so this only extracts today's tagged items for renderTodayPeople
-// now. Still needs the full calendar.ics fetch/parse either way, since that's the only
-// source for the Today widget too.
+// by the shopping list -- so this only extracts today's and tomorrow's tagged items for
+// renderTodayPeople now. Still needs the full calendar.ics fetch/parse either way, since
+// that's the only source for the Today widget too.
 function loadCalendar() {
   var today = document.getElementById("today-people");
   fetch("calendar.ics", { cache: "no-store" })
@@ -321,14 +373,15 @@ function loadCalendar() {
     .then(function (text) {
       var events = parseICS(text);
       var taggedToday = [];
+      var taggedTomorrow = [];
       events.forEach(function (e) {
-        var tagged =
-          e.start && e.start.allDay && isToday(e.start.date)
-            ? parseTaggedSummary(e.summary)
-            : null;
-        if (tagged) taggedToday.push(tagged);
+        if (!e.start || !e.start.allDay) return;
+        var tagged = parseTaggedSummary(e.summary);
+        if (!tagged) return;
+        if (isToday(e.start.date)) taggedToday.push(tagged);
+        else if (isTomorrow(e.start.date)) taggedTomorrow.push(tagged);
       });
-      renderTodayPeople(taggedToday);
+      renderTodayPeople(taggedToday, taggedTomorrow);
     })
     .catch(function (err) {
       today.innerHTML =
@@ -636,7 +689,11 @@ function setupTracker(name, valueId, btnId) {
 // Status comes from server.py's /api/dog-fed, which derives it from the food container
 // sensor's open/close history against the configured morning/afternoon windows -- not from
 // the sensor's current state, which only ever says "open" or "closed right now".
-var DOG_FED_ICONS = { pending: '&ndash;', fed: '&#9989;', missed: '&#10060;' };
+// Plain monochrome check/cross (U+2713/U+2717), not the color emoji (checkmark/cross
+// emoji render in fixed platform green/red, clashing with the muted glass theme) -- same
+// "plain Unicode glyph over color emoji" swap as the club icon elsewhere in this file.
+// These inherit .status-fed/.status-missed's text color instead of fighting it.
+var DOG_FED_ICONS = { pending: '&ndash;', fed: '&#10003;', missed: '&#10007;' };
 
 function renderDogFedSlot(id, label, status) {
   var slot = document.getElementById(id);

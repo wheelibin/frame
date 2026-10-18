@@ -172,7 +172,7 @@ header {
   align-items: center;
 }
 
-.controls-row .status-pill:last-child {
+.status-pill:last-child {
   margin-right: 0;
 }
 
@@ -300,24 +300,6 @@ header {
   box-shadow:
     0 20px 50px rgba(0, 0, 0, 0.45),
     0 0 60px -20px rgba(255, 170, 80, 0.55);
-}
-
-.widget-today {
-  /* Its own trailing margin-right zeroed -- the margin:0 32px 24px 0 on .widget is unused
-     here (nothing follows it to create a gap with) and would otherwise shrink it 32px
-     narrower than the full row width, same class of bug the width fix above addresses.
-     flex:1 (its parent .widgets is now a column flex container) grows it to fill whatever
-     vertical space is left under row1, instead of staying content-sized with a dead gap
-     at the bottom of the page. */
-  width: 100%;
-  flex: 1;
-  min-height: 0;
-  margin-right: 0;
-  display: flex;
-  flex-direction: column;
-  box-shadow:
-    0 20px 50px rgba(0, 0, 0, 0.45),
-    0 0 60px -20px rgba(80, 220, 170, 0.5);
 }
 
 .widget h2 {
@@ -454,13 +436,17 @@ header {
   line-height: 1.6;
 }
 
-#rain-alert {
+.alerts-row {
   margin-top: 20px;
+  display: flex;
+  justify-content: space-between;
+}
+
+#rain-alert {
   padding: 12px 20px;
   border-radius: 999px;
   font-size: 18px;
   font-weight: 600;
-  display: inline-block;
 }
 
 #rain-alert.rain-urgent {
@@ -479,13 +465,10 @@ header {
 }
 
 #coat-alert {
-  margin-top: 20px;
-  margin-left: 12px;
   padding: 12px 20px;
   border-radius: 999px;
   font-size: 18px;
   font-weight: 600;
-  display: inline-block;
 }
 
 #coat-alert.coat-needed {
@@ -503,26 +486,43 @@ header {
   font-weight: 500;
 }
 
-/* justify-content: space-between looked great at 3 columns but pushed 2 columns apart to
-   the opposite edges with nothing to anchor the middle -- awkward. A fixed gap between
-   columns (not one that stretches to fill available width) plus centering the whole row
-   as a block looks intentional at any count instead, with no count-specific styling:
-   2 columns sit together as a pair, 3 as a trio, etc. (No flex "gap" on this WebView --
-   the gap is margin-right on each column, same workaround as elsewhere in this file.) */
+/* Each person gets their own widget instead of a bare name pill floating over shared
+   whitespace, or all being boxed inside one shared "Today" container -- same "card with
+   glow" treatment as .widget-weather/.widget-shopping above, just per person. One row, no
+   wrap: flex:1 on each card grows it to fill whatever width the row has, same "equal
+   flexible share" as .row1's widgets. flex:1 + min-height:0 on #today-people (its parent
+   .widgets is a column flex container) grows the row to fill whatever vertical space is
+   left under row1. align-items:stretch makes every card match the tallest one, so the
+   cards' backgrounds fill the full row instead of leaving dead space below -- content
+   inside stays top-aligned (not re-centered into that extra height) so every name pill
+   sits on the same row across cards. (No flex "gap" on this WebView -- the gap is
+   margin-right on each card, same workaround as elsewhere in this file.) */
 #today-people {
   flex: 1;
+  min-height: 0;
   display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  align-content: center;
+  align-items: stretch;
 }
 
 .person-column {
-  min-width: 260px;
-  margin: 0 32px 12px 0;
+  flex: 1;
+  min-width: 0; /* same flex-item shrink gotcha as #shopping-input above -- without it a
+                   long item line can keep the card from shrinking to its equal share and
+                   it overflows past the row instead. */
+  margin-right: 24px;
   display: flex;
   flex-direction: column;
   align-items: center;
+  background: linear-gradient(
+    165deg,
+    rgba(255, 255, 255, 0.07),
+    rgba(255, 255, 255, 0.02)
+  );
+  border-radius: 28px;
+  padding: 20px;
+  box-shadow:
+    0 20px 50px rgba(0, 0, 0, 0.45),
+    0 0 60px -20px rgba(80, 220, 170, 0.5);
 }
 
 .person-column:last-child {
@@ -542,8 +542,8 @@ header {
   margin-bottom: 14px;
 }
 
-/* .person-column is a centered flex column (name pill, then list) -- align-items:center
-   there already centers the list as a block. */
+/* .person-column is a flex column, horizontally centered (align-items:center) -- that
+   already centers the list as a block, so no extra centering needed here. */
 .person-column ul {
   list-style: none;
 }
@@ -554,6 +554,31 @@ header {
   color: #fff;
   padding: 5px 0;
   text-align: center;
+}
+
+/* Tomorrow's items sit below today's in the same card, visually de-emphasized (smaller,
+   dimmer, separated by a thin rule) rather than given equal weight -- they're
+   look-ahead, not today's actual to-do list. */
+.tomorrow-section {
+  width: 100%;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  opacity: 0.4;
+}
+
+.tomorrow-label {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: #8a90a8;
+  text-align: center;
+  margin-bottom: 4px;
+}
+
+.tomorrow-section li {
+  font-size: 16px;
 }
 
 /* .item-text is centered by the <li>'s text-align, sized to the text's own width alone
