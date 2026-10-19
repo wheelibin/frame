@@ -23,7 +23,7 @@ COPYFILE_DISABLE=1 tar czf - --exclude='.git' --exclude='.deploy.env' -C .. dash
   | ssh "$HOST" "tar xzf - -C $REMOTE_APPS_DIR"
 # Code is bind-mounted, not baked into the image (see docker-compose.yml) -- the image
 # never changes on a code-only edit, so plain "up -d --build" sees nothing to recreate
-# and leaves the already-running Python process serving stale in-memory code. Restarting
+# and leaves the already-running Node process serving stale in-memory code. Restarting
 # unconditionally is what actually picks up the change.
 ssh "$HOST" "cd $REMOTE_APPS_DIR/dashboard && docker compose up -d --build && docker compose restart"
 

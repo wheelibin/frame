@@ -1,7 +1,8 @@
 backups/
 diagnostics/
-dashboard/calendar.ics
-dashboard/weather.json
-dashboard/config.local.js
-dashboard/dashboard.env
+dashboard/ui/calendar.ics
+dashboard/ui/weather.json
+dashboard/ui/config.local.js
+dashboard/server/dashboard.env
+dashboard/server/node_modules/
 dashboard/.deploy.env

@@ -3,6 +3,19 @@
 Plain HTML/CSS/JS, no build step — deliberately, since the frame's stock WebView doesn't
 need anything a bundler would buy us, and this is meant to hand off to a home server as-is.
 
+Two folders:
+
+- `ui/` — everything the kiosk's browser loads: `index.html`, `app.js`, `style.css`,
+  `config.js`/`config.local.js`, fonts, icons, and the cron-refreshed `calendar.ics`/
+  `weather.json` data files. Subject to the WebView 44 constraints below.
+- `server/` — `server.js` (Express) plus the `fetch-calendar.sh`/`fetch-weather.sh` scripts
+  that write into `../ui`, and `dashboard.env` (gitignored). Runs under a normal
+  current Node, not the WebView, so none of the WebView 44 constraints apply here.
+
+Everything else (`Dockerfile`, `docker-compose.yml`, `entrypoint.sh`, `deploy.sh`,
+`dev-deploy.sh`) stays at the `dashboard/` root, since Docker/deploy need both folders
+together, not just one.
+
 ## The WebView 44 trap
 
 This frame ships WebView **44** (from ~2015/16). Modern JS syntax that feels completely
@@ -83,7 +96,7 @@ track record, and it's what both current widgets do.
 ## Calendar (iCloud)
 
 ```sh
-./fetch-calendar.sh        # curls CALENDAR_URL (dashboard.env) -> calendar.ics, same directory
+./server/fetch-calendar.sh  # curls CALENDAR_URL (server/dashboard.env) -> ui/calendar.ics
 ```
 
 `app.js` fetches `calendar.ics` and parses `VEVENT` blocks itself — no library, since the
@@ -108,7 +121,7 @@ needed yet. Add it if a recurring event you care about goes missing.
 ## Weather (Open-Meteo)
 
 ```sh
-./fetch-weather.sh         # curls current + today's high/low -> weather.json
+./server/fetch-weather.sh  # curls current + today's high/low -> ui/weather.json
 ```
 
 No API key needed. Location is a fixed lat/long (the frame doesn't move), resolved once
@@ -136,16 +149,17 @@ reporting resolution) while `precipitation_probability` correctly read >50% and 
 Amount-only triggering missed real rain entirely until this was caught by it not matching
 what was actually happening outside.
 
-On a real deployment, put both `fetch-*.sh` scripts on a cron wherever this ends up hosted,
-so the `.json`/`.ics` files stay current without the frame needing to reach either service
-directly.
+On a real deployment, put both `server/fetch-*.sh` scripts on a cron wherever this ends up
+hosted, so the `.json`/`.ics` files stay current without the frame needing to reach either
+service directly.
 
 ## Home Assistant integration
 
 The shopping list, litter/fish trackers, and kitchen light widgets all go through
-`server.py`'s live relay — see `server.py`'s own header comment for why these need a live
-process rather than a cron-fetched file like calendar/weather. Configured via
-`dashboard.env` (gitignored, create it yourself, `KEY=value` per line, no quoting needed):
+`server/server.js`'s live relay (Express) — see its own header comment for why these need
+a live process rather than a cron-fetched file like calendar/weather. Configured via
+`server/dashboard.env` (gitignored, create it yourself, `KEY=value` per line, no quoting
+needed):
 
 ```sh
 CALENDAR_URL=...                              # iCloud calendar share link
@@ -161,10 +175,10 @@ HA_KITCHEN_ADAPTIVE_SWITCH_ENTITY_ID=switch.your_adaptive_lighting_switch
 
 One file instead of separate `ha.local.json`/`calendar-url.txt` since both were "real
 runtime secrets the app needs to function" for the same reason — no point splitting them
-by format when they're the same kind of thing. `config.local.js` stays separate from this:
-it's loaded directly by the browser via `<script>`, not read by `server.py` at all, so it
-can't become an env var without `server.py` templating JS at request time instead of
-serving a static file.
+by format when they're the same kind of thing. `config.local.js` stays separate from this
+(and lives in `ui/`, not `server/`): it's loaded directly by the browser via `<script>`,
+not read by `server.js` at all, so it can't become an env var without `server.js`
+templating JS at request time instead of serving a static file.
 
 ## Dev loop
 
@@ -172,33 +186,33 @@ serving a static file.
 ./dev-deploy.sh
 ```
 
-Edit, save, re-run — no rebuild, no reinstall. Safe to re-run repeatedly: starts
-`server.py` only if it isn't already running, re-tunnels over USB (a no-op if already
-set up), and reloads the kiosk. Under the hood it's just:
+Edit, save, re-run. Safe to re-run repeatedly: installs `server/node_modules` the first
+time only, starts `server.js` only if it isn't already running, re-tunnels over USB (a
+no-op if already set up), and reloads the kiosk. Under the hood it's just:
 ```sh
-python3 server.py &                           # serve this directory, no caching (see below)
+node server/server.js &                            # serve ui/, no caching (see below)
 adb -d reverse tcp:8765 tcp:8765                   # tunnel it over USB (redo after every reboot)
 adb -d shell am start -n com.wesbos.homehq/.MainActivity --es url http://localhost:8765/
 ```
 
-**Use `server.py`, not plain `python3 -m http.server`.** The WebView caches every
-linked resource (`style.css`, `app.js`, ...) independently **by its own URL**, not tied to
-the page's URL at all — cache-busting the page's URL on reload does nothing for them. Hit
-this for real: made several CSS-only edits in a row, reloaded each time, and was looking at
-a stale cached stylesheet the entire time with zero indication anything was wrong (the
-page URL changing on reload masked it completely). `server.py` is identical to the
-stdlib server except it sends `Cache-Control: no-store` on every response, which fixes
-this at the source instead of needing to cache-bust every resource by hand. Separately:
-pointing the kiosk at `http://localhost:8765/` across two totally different local servers
-in one session (this dashboard, then an unrelated experiment) produced a white screen from
-a *different* stale-cache angle — the WebView served the other server's cached
-`index.html`. A `?t=$(date +%s)` query string on the page URL itself still handles that
-specific case if it ever recurs; `server.py` handles the rest.
+**Use `server.js`, not plain `npx serve`/`python3 -m http.server`.** The WebView caches
+every linked resource (`style.css`, `app.js`, ...) independently **by its own URL**, not
+tied to the page's URL at all — cache-busting the page's URL on reload does nothing for
+them. Hit this for real: made several CSS-only edits in a row, reloaded each time, and was
+looking at a stale cached stylesheet the entire time with zero indication anything was
+wrong (the page URL changing on reload masked it completely). `server.js` is a small
+Express app serving `ui/` as static files, plus it sends `Cache-Control: no-store` on
+every response, which fixes this at the source instead of needing to cache-bust every
+resource by hand. Separately: pointing the kiosk at `http://localhost:8765/` across two
+totally different local servers in one session (this dashboard, then an unrelated
+experiment) produced a white screen from a *different* stale-cache angle — the WebView
+served the other server's cached `index.html`. A `?t=$(date +%s)` query string on the page
+URL itself still handles that specific case if it ever recurs; `server.js` handles the rest.
 
 ## Deploying for real
 
 This can't just be static files on something like Cloudflare Pages anymore. The shopping
-list, litter, and fish widgets go through `server.py`'s live relay to Home Assistant
+list, litter, and fish widgets go through `server.js`'s live relay to Home Assistant
 (reads **and** writes, with the auth token kept server-side) — that needs a process running
 continuously, not a one-time file copy. Calendar/weather are still just cron-fetched files,
 but they're cheap to run alongside the relay rather than set up separately.
@@ -222,11 +236,18 @@ nothing secret-looking about shipping them to the one server that runs this, so 
 locally once (see their sections above for what goes in each) and let every deploy carry
 them over, rather than maintaining a separate copy by hand on the server.
 
+`server/node_modules` (Express) follows the exact same "create once, every deploy carries
+it over" pattern — gitignored, not baked into the Docker image. Run `npm install` in
+`server/` once, locally or directly on the server, before the first deploy (`dev-deploy.sh`
+already does this for local dev automatically). Safe because Express has no native/compiled
+dependencies, so the same `node_modules` works whether it was installed on your Mac or the
+Linux server — not something to assume for an arbitrary npm package.
+
 Then restart once so the container picks them up: `docker compose up -d --build` (or just
 re-run `./dashboard/deploy.sh` from your machine).
 
 The container's `entrypoint.sh` runs `fetch-calendar.sh`/`fetch-weather.sh` once on
-startup and then every 15 minutes in the background, and runs `server.py` in the
+startup and then every 15 minutes in the background, and runs `server.js` in the
 foreground as the main process — no separate cron needed. `docker-compose.yml` bind-mounts
 this directory into the container rather than baking it into the image, so shipping a
 change after the one-time setup above is just:

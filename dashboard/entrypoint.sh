@@ -6,12 +6,17 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
+# Node's Intl/Date machinery resolves the local zone from TZ, not from /etc/localtime --
+# see docker-compose.yml's comment on the /etc/timezone bind mount. Exporting TZ from its
+# contents is what actually makes Node pick up the host's real zone.
+[ -f /etc/timezone ] && export TZ="$(cat /etc/timezone)"
+
 (
   while true; do
-    ./fetch-calendar.sh || true
-    ./fetch-weather.sh || true
+    ./server/fetch-calendar.sh || true
+    ./server/fetch-weather.sh || true
     sleep 900
   done
 ) &
 
-exec python3 server.py
+exec node server/server.js

@@ -10,6 +10,15 @@ services:
       # Container defaults to UTC regardless of the host's tz -- confirmed to desync the
       # dog-fed morning/afternoon window math from real local time by the DST offset
       # (container thought it was an hour earlier than the host during BST). Bind-mounting
-      # the host's tz file, not a hardcoded TZ=Europe/London, so this keeps tracking
+      # the host's tz files, not a hardcoded TZ=Europe/London, so this keeps tracking
       # whatever the host is actually set to (including future DST transitions) for free.
+      #
+      # Both files, not just /etc/localtime: `date` and most other tools resolve the local
+      # zone from /etc/localtime alone, but Node's Intl/Date machinery reads /etc/timezone
+      # instead -- confirmed directly (docker run node:20-slim with only /etc/localtime
+      # mounted still reports Etc/UTC from Intl.DateTimeFormat). Missing this silently
+      # regressed the dog-fed window math by the BST offset even with /etc/localtime
+      # already bind-mounted. entrypoint.sh exports TZ from /etc/timezone's contents so
+      # Node actually picks it up.
       - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
