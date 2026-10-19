@@ -553,6 +553,27 @@ function loadWeather() {
 loadWeather();
 setInterval(loadWeather, 1000 * 60 * 15);
 
+// --- Fact of the day: fact.json is a daily snapshot (server/fetch-fact.sh), same
+// fetched-server-side-then-same-origin pattern as calendar/weather. Polled on the same
+// 15-minute cadence as weather purely for consistency with the rest of this file -- the
+// content itself only actually changes once a day, upstream.
+function loadFact() {
+  fetch("fact.json", { cache: "no-store" })
+    .then(function (res) {
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      return res.json();
+    })
+    .then(function (data) {
+      document.getElementById("fact-text").textContent = data.text || "";
+    })
+    .catch(function () {
+      document.getElementById("fact-text").textContent = "";
+    });
+}
+
+loadFact();
+setInterval(loadFact, 1000 * 60 * 15);
+
 // --- Shopping list: live reads/writes through server.js's /api/shopping-list relay
 // to Home Assistant's todo integration -- not a cron-fetched snapshot like calendar/
 // weather, since adding an item needs to actually reach HA, and whatever's added via HA

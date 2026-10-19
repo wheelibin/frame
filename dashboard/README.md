@@ -149,9 +149,20 @@ reporting resolution) while `precipitation_probability` correctly read >50% and 
 Amount-only triggering missed real rain entirely until this was caught by it not matching
 what was actually happening outside.
 
-On a real deployment, put both `server/fetch-*.sh` scripts on a cron wherever this ends up
-hosted, so the `.json`/`.ics` files stay current without the frame needing to reach either
-service directly.
+On a real deployment, put all of `server/fetch-*.sh` on a cron wherever this ends up
+hosted, so the `.json`/`.ics` files stay current without the frame needing to reach any of
+these services directly.
+
+## Fact of the day (uselessfacts.jsph.pl)
+
+```sh
+./server/fetch-fact.sh     # curls today's fact -> ui/fact.json
+```
+
+Sits in the header's middle gap (`justify-content: space-between` between the clock and
+the status pills left it empty). No API key, no params -- the `/facts/today` endpoint
+itself rotates once every 24h, so one fetch per cron run is enough; `app.js` just renders
+whatever's currently in `fact.json`, same same-origin-fetch pattern as calendar/weather.
 
 ## Home Assistant integration
 

@@ -92,6 +92,38 @@ header {
   align-items: baseline;
 }
 
+/* Fills the gap space-between leaves between the clock and the status pills -- flex:1
+   grows it to take whatever's left, min-width:0 lets it actually shrink there (same
+   flex-item gotcha as #shopping-input/.person-column elsewhere in this file) instead of
+   pushing the pills off to the right. Muted/quiet, not a pill -- it's a passive aside, not
+   a status to glance at the way the pills are. */
+#fact {
+  flex: 1;
+  min-width: 0;
+  text-align: center;
+  margin: 0 32px;
+  padding: 10px 24px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+}
+
+/* Same tiny-uppercase-caption treatment as .tomorrow-label -- this project's established
+   "quiet label above the actual content" look. */
+.fact-label {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: #8a90a8;
+  margin-bottom: 4px;
+}
+
+#fact-text {
+  color: #8a90a8;
+  font-size: 17px;
+  font-weight: 500;
+}
+
 #bin-pill {
   display: none;
 }

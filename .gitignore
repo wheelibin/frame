@@ -2,6 +2,7 @@ backups/
 diagnostics/
 dashboard/ui/calendar.ics
 dashboard/ui/weather.json
+dashboard/ui/fact.json
 dashboard/ui/config.local.js
 dashboard/server/dashboard.env
 dashboard/server/node_modules/
