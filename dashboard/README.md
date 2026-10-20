@@ -172,13 +172,17 @@ these services directly.
 ## Fact of the day (uselessfacts.jsph.pl)
 
 ```sh
-./server/fetch-fact.sh     # curls today's fact -> ui/fact.json
+./server/fetch-fact.sh     # curls a random fact -> ui/fact.json
 ```
 
 Sits in the header's middle gap (`justify-content: space-between` between the clock and
-the status pills left it empty). No API key, no params -- the `/facts/today` endpoint
-itself rotates once every 24h, so one fetch per cron run is enough; `app.js` just renders
-whatever's currently in `fact.json`, same same-origin-fetch pattern as calendar/weather.
+the status pills left it empty). No API key, no params -- but unlike calendar/weather/route,
+don't just add this to the same cron/loop as everything else: the `/facts/random` endpoint
+returns a *different* fact on every call, so it needs its own once-a-day (midnight) schedule
+to stay a stable "fact of the day" rather than changing every poll. `entrypoint.sh` already
+does this with a dedicated loop that sleeps until the next midnight between fetches;
+`app.js` just renders whatever's currently in `fact.json`, same same-origin-fetch pattern
+as calendar/weather.
 
 ## Route / drive time (TomTom)
 

@@ -29,18 +29,21 @@ COPYFILE_DISABLE=1 tar czf - --exclude='.git' --exclude='.deploy.env' -C .. dash
 # unconditionally is what actually picks up the change.
 ssh "$HOST" "cd $REMOTE_APPS_DIR/dashboard && docker compose up -d --build && docker compose restart"
 
-# entrypoint.sh's background loop already fetches all of these on container start, before
-# its first 15-minute sleep -- but that races the container, which is already up and
-# serving whatever calendar.ics/weather.json/fact.json/route.json happened to be on disk
-# (stale, or missing on a first-ever deploy) while the fetch is still in flight. Running
-# them again here, synchronously, means "deployed" actually means "fresh data", not "fresh
-# data in a few seconds, probably". `|| true` per script, same as entrypoint.sh's own
-# loop -- one fetch failing (a transient network blip) shouldn't fail the whole deploy;
-# the background loop retries it in 15 minutes regardless.
+# entrypoint.sh's background loops already fetch calendar/weather/route on container
+# start, before their first sleep -- but that races the container, which is already up and
+# serving whatever calendar.ics/weather.json/route.json happened to be on disk (stale, or
+# missing on a first-ever deploy) while the fetch is still in flight. Running them again
+# here, synchronously, means "deployed" actually means "fresh data", not "fresh data in a
+# few seconds, probably". `|| true` per script, same as entrypoint.sh's own loops -- one
+# fetch failing (a transient network blip) shouldn't fail the whole deploy; the background
+# loop retries it regardless.
+# fact.json deliberately isn't re-fetched here -- entrypoint.sh's restart already fetches
+# it once (same as the others), but /api/v2/facts/random returns a different fact on every
+# call, so fetching it again here would hand you a second, different "fact of the day" on
+# every deploy instead of leaving the one fetched at container start/midnight in place.
 ssh "$HOST" "cd $REMOTE_APPS_DIR/dashboard && docker compose exec -T dashboard sh -c '
   ./server/fetch-calendar.sh || true
   ./server/fetch-weather.sh || true
-  ./server/fetch-fact.sh || true
   ./server/fetch-route.sh || true
 '"
 

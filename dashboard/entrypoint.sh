@@ -15,8 +15,18 @@ cd "$(dirname "$0")"
   while true; do
     ./server/fetch-calendar.sh || true
     ./server/fetch-weather.sh || true
-    ./server/fetch-fact.sh || true
     sleep 900
+  done
+) &
+
+# fact.json gets its own loop, not lumped into the one above -- fetch-fact.sh now hits
+# /api/v2/facts/random, which returns a different fact on every call, so this has to run
+# once a day (at midnight) rather than every 15 minutes or the displayed fact would change
+# throughout the day.
+(
+  while true; do
+    ./server/fetch-fact.sh || true
+    sleep "$(($(date -d "tomorrow 00:00:00" +%s) - $(date +%s)))"
   done
 ) &
 

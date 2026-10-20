@@ -505,7 +505,9 @@ setInterval(loadWeather, 1000 * 60 * 15);
 // --- Fact of the day: fact.json is a daily snapshot (server/fetch-fact.sh), same
 // fetched-server-side-then-same-origin pattern as calendar/weather. Polled on the same
 // 15-minute cadence as weather purely for consistency with the rest of this file -- the
-// content itself only actually changes once a day, upstream.
+// content itself only actually changes once a day, at midnight, via fetch-fact.sh's own
+// dedicated loop in entrypoint.sh (the /random endpoint it hits returns a different fact
+// on every call, so that loop -- not the API -- is what pins this to once a day).
 async function loadFact() {
   try {
     const res = await fetch("fact.json", { cache: "no-store" });
