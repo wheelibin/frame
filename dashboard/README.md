@@ -164,6 +164,80 @@ the status pills left it empty). No API key, no params -- the `/facts/today` end
 itself rotates once every 24h, so one fetch per cron run is enough; `app.js` just renders
 whatever's currently in `fact.json`, same same-origin-fetch pattern as calendar/weather.
 
+## Route / drive time (TomTom)
+
+```sh
+./server/fetch-route.sh    # curls drive time (+ optional incidents) -> ui/route.json
+```
+
+Sits in the middle of row1, between Weather and Shopping List -- all three widgets
+compressed from two 576px columns to three 373px ones to fit (`.widget`'s width, plus
+smaller fonts/padding throughout Weather and Shopping List's internals).
+
+Configured via `server/dashboard.env`:
+
+```sh
+TOMTOM_API_KEY=...                            # developer.tomtom.com, free tier
+ROUTE_ORIGIN=53.64789,-2.31683                # "lat,lon"
+ROUTE_DESTINATION=53.47952,-2.24411           # "lat,lon"
+ROUTE_LABEL=Work                              # shown as "Route to <label>"
+ROUTE_INCLUDE_INCIDENTS=true                  # optional -- omit/false to leave incidents out of the status pill entirely
+ROUTE_FAST_WINDOW=06:30-08:00                 # optional -- "HH:MM-HH:MM", same format as HA_DOG_FED_MORNING_WINDOW
+ROUTE_FAST_INTERVAL_SECONDS=120               # required if ROUTE_FAST_WINDOW is set
+```
+
+TomTom over Google Maps Platform: Google's Routes API gives a traffic-aware ETA fine, but
+has no structured "incidents on this route" data for developers (the consumer Maps app
+shows incident icons; the API doesn't expose them) -- would've needed a second provider
+just for that. TomTom's Routing API alone covers both asks (see below), with a self-serve
+API key (no Google Cloud billing account needed) and a free tier (2,500 requests/day) this
+single-route poll never comes close to.
+
+Incidents come from the Calculate Route call itself (`&sectionType=traffic`), not a
+separate Traffic Incidents API query -- that was the first version of this script, against
+a bounding box padded around both endpoints as a stand-in for "near the route". Confirmed
+directly against this project's real commute that it doesn't work: even with the padding
+shrunk to near zero, the box between two points 18km apart in a built-up area still
+covered 300+ incidents, i.e. most of the city's incident feed, not "on this route".
+`sectionType=traffic` doesn't have that problem -- TomTom does the route-aware filtering
+itself, returning only the handful of incidents actually on the calculated path (3 for
+that same real commute, each with its own delay/category), as part of one API call
+instead of two, for a fraction of the response size.
+
+One combined pill, not separate delay/incidents pills -- two pills meant two numbers that
+could disagree ("No delay" next to "2 incidents" reads as contradictory even when both are
+accurate, since individual incidents can each carry a small delay that doesn't add up to a
+meaningful route-level total). `trafficDelayInSeconds` under 5 minutes doesn't lead the
+pill with a number at all; below that bar, there's always some noise in a live traffic
+estimate, so it isn't worth a headline figure.
+
+Which incidents make it into that pill is category-aware, not a flat "every incident
+TomTom reports" or a flat delay cutoff: `ROAD_WORK`/`ROAD_CLOSURE` always show (the road
+itself is being worked on or blocked, independent of how much that's slowing traffic right
+now), while `JAM`/`OTHER` only show once their own `delayInSeconds` clears 60s (TomTom
+reports these down to single-digit seconds, which is just noise, not a real jam). Multiple
+incidents in the same category collapse into one mention (two `JAM` sections still just
+read "Jam"), shown in severity order, not API order.
+
+Examples, same shape the code was tested against:
+- Nothing worth reporting -- `"No significant delay"`
+- Only noise-filtered categories survive -- `"Roadworks"` (a 12s jam and a 55s "other"
+  both got filtered; the roadworks shows regardless)
+- Real delay, but under the 5-minute bar -- `"Jam, Roadworks"` (no number, since the
+  aggregate delay isn't the point of the message at that level)
+- Significant delay -- `"+7 min traffic (Jam, Roadworks)"`
+
+The "Usually N min" comparison is `historicTrafficTravelTimeInSeconds`, not
+`noTrafficTravelTimeInSeconds` -- the latter is TomTom's zero-traffic best case (an empty
+road), not a typical/average time, so it's the wrong field for what "usually" means.
+
+`entrypoint.sh` gives `fetch-route.sh` its own background loop, separate from
+calendar/weather/fact's shared one, polling every `ROUTE_FAST_INTERVAL_SECONDS` instead of
+the usual 900 while inside `ROUTE_FAST_WINDOW` -- traffic conditions can shift quickly
+during an actual commute, unlike weather or a calendar. Comfortably within the free tier
+even polled aggressively: a 90-minute window at 2-minute intervals is ~45 extra calls/day
+on top of the ~84/day baseline, nowhere near the 2,500/day limit.
+
 ## Home Assistant integration
 
 The shopping list, litter/fish trackers, and kitchen light widgets all go through

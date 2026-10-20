@@ -529,8 +529,8 @@ function renderWeather(current, daily, minutely) {
     rainEl.innerHTML = "";
   } else {
     rainEl.className = rain.urgent
-      ? "rain-alert rain-urgent"
-      : "rain-alert rain-calm";
+      ? "alert-pill rain-urgent"
+      : "alert-pill rain-calm";
     rainEl.innerHTML =
       (rain.urgent ? "&#127783;&#65039; " : "&#9989; ") + rain.text;
   }
@@ -540,7 +540,7 @@ function renderWeather(current, daily, minutely) {
   if (!coat) {
     coatEl.innerHTML = "";
   } else {
-    coatEl.className = coat.needed ? "coat-needed" : "coat-ok";
+    coatEl.className = coat.needed ? "alert-pill coat-needed" : "alert-pill coat-ok";
     coatEl.innerHTML = coat.icon + " " + coat.text;
   }
 }
@@ -586,6 +586,136 @@ function loadFact() {
 
 loadFact();
 setInterval(loadFact, 1000 * 60 * 15);
+
+// --- Route: drive time (+ optional incidents) for ROUTE_ORIGIN -> ROUTE_DESTINATION,
+// fetched server-side by server/fetch-route.sh (TomTom) into route.json, same
+// fetched-then-same-origin pattern as calendar/weather/fact. Polled on the same 15-minute
+// cadence as weather for consistency with the rest of this file.
+//
+// Below this many seconds of traffic delay, the "delay" pill reads as "No delay" rather
+// than flagging a real slowdown -- there's always some noise in a live traffic estimate,
+// and a 1-2 minute wobble isn't worth a visual alert.
+var ROUTE_DELAY_THRESHOLD_SECONDS = 300;
+
+// TomTom's own simpleCategory values -- JAM/ROAD_WORK/ROAD_CLOSURE are self-explanatory,
+// OTHER is an explicit catch-all (accident, broken-down vehicle, weather, anything not in
+// the other three) with no further detail available: the per-incident "tec" cause codes
+// reference an external ISO 13585/TPEG2-TEC table TomTom's own docs don't reproduce, so
+// "Delay" here is deliberately generic rather than guessing a specific cause. Order here
+// is display order (most to least severe), not API order.
+var ROUTE_INCIDENT_CATEGORY_ORDER = ["ROAD_CLOSURE", "JAM", "ROAD_WORK", "OTHER"];
+var ROUTE_INCIDENT_LABELS = {
+  ROAD_CLOSURE: "Closure",
+  JAM: "Jam",
+  ROAD_WORK: "Roadworks",
+  OTHER: "Delay",
+};
+
+// ROAD_WORK/ROAD_CLOSURE are worth flagging regardless of current delay -- the road
+// itself is being worked on or blocked, independent of how much that's slowing traffic
+// right now. JAM/OTHER are purely about current throughput, so a few seconds of "delay"
+// there (TomTom reports these down to single-digit seconds) is just noise, not a real jam.
+var ROUTE_INCIDENT_ALWAYS_SHOW = { ROAD_WORK: true, ROAD_CLOSURE: true };
+var ROUTE_INCIDENT_MIN_DELAY_SECONDS = 60;
+
+// One entry per category present (not per incident -- two JAM sections still read as one
+// "Jam"), in severity order, each only included if it clears the relevance bar above.
+function relevantIncidentCategories(trafficSections) {
+  var present = {};
+  trafficSections.forEach(function (s) {
+    var worthShowing =
+      ROUTE_INCIDENT_ALWAYS_SHOW[s.simpleCategory] ||
+      (s.delayInSeconds || 0) >= ROUTE_INCIDENT_MIN_DELAY_SECONDS;
+    if (worthShowing) present[s.simpleCategory] = true;
+  });
+  return ROUTE_INCIDENT_CATEGORY_ORDER.filter(function (c) {
+    return present[c];
+  }).map(function (c) {
+    return ROUTE_INCIDENT_LABELS[c];
+  });
+}
+
+function renderRoute(data) {
+  document.getElementById("route-label").textContent = data.label || "";
+
+  var statusEl = document.getElementById("route-status-alert");
+  var summary =
+    data.route && data.route.routes && data.route.routes[0]
+      ? data.route.routes[0].summary
+      : null;
+
+  if (!summary) {
+    document.getElementById("route").innerHTML =
+      '<p class="empty">Route unavailable</p>';
+    statusEl.innerHTML = "";
+    return;
+  }
+
+  var minutes = Math.round(summary.travelTimeInSeconds / 60);
+  // historicTrafficTravelTimeInSeconds, not noTrafficTravelTimeInSeconds -- the latter is
+  // TomTom's zero-traffic best case (an empty road), not what "usually" means. The
+  // historic figure is based on actual traffic patterns for this route/time, which is
+  // what a "usually" comparison should be against.
+  var usualMinutes = Math.round(summary.historicTrafficTravelTimeInSeconds / 60);
+  document.getElementById("route").innerHTML =
+    '<span class="route-minutes">' +
+    minutes +
+    '</span><span class="route-unit">min</span>' +
+    '<span class="route-detail">Usually ' +
+    usualMinutes +
+    " min</span>";
+
+  // "sections" is only present on the route when ROUTE_INCLUDE_INCIDENTS=true triggered
+  // server/fetch-route.sh's &sectionType=traffic -- without that request TomTom never
+  // includes the key at all. Each entry is already scoped to this specific route by
+  // TomTom itself (not a bounding-box guess) -- see fetch-route.sh for why that
+  // distinction mattered.
+  var sections = data.route.routes[0].sections;
+  var trafficSections = sections
+    ? sections.filter(function (s) {
+        return s.sectionType === "TRAFFIC";
+      })
+    : [];
+  var categories = relevantIncidentCategories(trafficSections);
+
+  var delaySeconds = summary.trafficDelayInSeconds || 0;
+  var isSignificant = delaySeconds >= ROUTE_DELAY_THRESHOLD_SECONDS;
+
+  if (!isSignificant && categories.length === 0) {
+    statusEl.className = "alert-pill no-delay";
+    statusEl.innerHTML = "&#9989; No significant delay";
+  } else {
+    // Leads with the overall route-level delay only once it's actually significant --
+    // otherwise this is just "here's what's on the route" with no number attached, since
+    // the aggregate delay isn't the point of the message in that case.
+    var text = isSignificant ? "+" + Math.round(delaySeconds / 60) + " min traffic" : "";
+    if (categories.length) {
+      text += text ? " (" + categories.join(", ") + ")" : categories.join(", ");
+    }
+    statusEl.className = "alert-pill delayed";
+    statusEl.innerHTML = "&#9888; " + text;
+  }
+}
+
+function loadRoute() {
+  fetch("route.json", { cache: "no-store" })
+    .then(function (res) {
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      return res.json();
+    })
+    .then(function (data) {
+      renderRoute(data);
+    })
+    .catch(function (err) {
+      document.getElementById("route").innerHTML =
+        '<p class="empty">Route unavailable (' + err.message + ")</p>";
+      document.getElementById("route-delay-alert").innerHTML = "";
+      document.getElementById("route-incidents-alert").innerHTML = "";
+    });
+}
+
+loadRoute();
+setInterval(loadRoute, 1000 * 60 * 15);
 
 // --- Shopping list: live reads/writes through server.js's /api/shopping-list relay
 // to Home Assistant's todo integration -- not a cron-fetched snapshot like calendar/
@@ -793,7 +923,7 @@ function loadDogFed() {
       renderDogFedSlot("dog-fed-afternoon", "PM", data.afternoon);
       setTimeout(
         loadDogFed,
-        data.in_window ? DOG_FED_FAST_POLL_MS : DOG_FED_SLOW_POLL_MS,
+        data.in_window ? DOG_FED_FAST_POLL_MS : DOG_FED_SLOW_POLL_MS
       );
     })
     .catch(function () {

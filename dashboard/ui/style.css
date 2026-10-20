@@ -294,17 +294,14 @@ header {
    property is silently dropped, not a visible error, so the glow was defined directly per
    class instead of via var() the first time this was tried, to actually render. */
 .widget {
-  /* 576px, not the original 560px -- the content box is 1184px (1280 - 48px padding each
-     side), minus one 32px gap, halved: (1184-32)/2 = 576. The original 560 left 32px of
-     unaccounted slack on the right of the row. Tried two other fixes first, both worse:
-     flex:1/flex-grow made every .widget equally flexible, so .widget-today lost its
-     forced full-width row and squeezed into a third column instead; calc((100% - 32px)/2)
-     computed the right pixel value but somehow made the row wrap after every single item
-     instead of fitting two per row -- percentage-in-calc() on a flex item's width seems to
-     be unreliable on this specific old engine (a known category of historical Chromium
-     flexbox bug). A plain static px value, computed once by hand instead of dynamically
-     in CSS, sidesteps that entirely. */
-  width: 576px;
+  /* 373px, not 576px: row1 went from 2 widgets to 3 (weather/route/shopping) when the
+     route widget landed in the middle. Content box is 1184px (1280 - 48px padding each
+     side), minus two 32px gaps: (1184 - 64) / 3 = 373.33, floored -- 1px of slack on the
+     row's right edge beats fighting for the exact fraction (see the flex:1/calc() dead
+     ends noted in the 2-widget version of this comment, same category of old-WebView
+     flexbox unreliability, not worth re-litigating per column count). A plain static px
+     value, computed once by hand instead of dynamically in CSS, sidesteps it entirely. */
+  width: 373px;
   margin: 0 32px 24px 0;
   background: linear-gradient(
     165deg,
@@ -319,9 +316,9 @@ header {
 }
 
 .widget-shopping {
-  /* Last in its row now (weather/shopping swapped) -- see .widget-weather's old comment
-     for why this zeroing matters: without it the row's total width goes 32px over the
-     content box and the whole row wraps instead of fitting two across. */
+  /* Last in its row (weather, route, shopping) -- without zeroing this the row's total
+     width goes 32px over the content box and the whole row wraps instead of fitting three
+     across. */
   margin-right: 0;
   box-shadow:
     0 20px 50px rgba(0, 0, 0, 0.45),
@@ -332,6 +329,12 @@ header {
   box-shadow:
     0 20px 50px rgba(0, 0, 0, 0.45),
     0 0 60px -20px rgba(255, 170, 80, 0.55);
+}
+
+.widget-route {
+  box-shadow:
+    0 20px 50px rgba(0, 0, 0, 0.45),
+    0 0 60px -20px rgba(80, 180, 220, 0.5);
 }
 
 .widget h2 {
@@ -362,13 +365,13 @@ header {
                    card edge -- the same category of flexbox sizing gotcha as the earlier
                    widget-width issue, just on the shrink side instead of the grow side */
   font-family: inherit;
-  font-size: 18px;
+  font-size: 15px;
   color: #eee;
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 12px;
-  padding: 10px 16px;
-  margin-right: 12px;
+  padding: 8px 12px;
+  margin-right: 10px;
 }
 
 #shopping-input::placeholder {
@@ -377,7 +380,7 @@ header {
 
 #shopping-add-btn {
   font-family: inherit;
-  font-size: 18px;
+  font-size: 15px;
   font-weight: 600;
   color: #e8d9ff;
   background: linear-gradient(
@@ -387,7 +390,7 @@ header {
   );
   border: 1px solid rgba(170, 110, 255, 0.5);
   border-radius: 12px;
-  padding: 10px 22px;
+  padding: 8px 16px;
 }
 
 #shopping-items {
@@ -397,10 +400,10 @@ header {
 }
 
 #shopping-items li {
-  font-size: 19px;
+  font-size: 16px;
   font-weight: 500;
   color: #fff;
-  padding: 9px 0;
+  padding: 7px 0;
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
   display: flex;
   align-items: center;
@@ -413,14 +416,14 @@ header {
 
 .shopping-remove-btn {
   font-family: inherit;
-  font-size: 20px;
+  font-size: 17px;
   line-height: 1;
   color: #a8adc2;
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 50%;
-  width: 36px;
-  height: 36px;
+  width: 30px;
+  height: 30px;
   flex-shrink: 0;
   margin-left: 16px;
 }
@@ -431,17 +434,24 @@ header {
   font-size: 21px;
 }
 
+/* min-height matched with #route below so both cards' alerts-row starts on the same row
+   regardless of how many lines their own content needs (weather's 2-line details vs
+   route's 1-line detail) -- picked by hand from the taller of the two (weather, icon +
+   2-line details), not computed, same "static value beats fighting the exact fraction"
+   approach as elsewhere in this file. */
 #weather {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
+  min-height: 112px;
 }
 
 #weather .weather-icon-big {
-  font-size: 50px;
+  font-size: 32px;
   line-height: 1;
-  margin-right: 20px;
-  width: 84px;
-  height: 84px;
+  margin-right: 14px;
+  width: 56px;
+  height: 56px;
   flex-shrink: 0;
   border-radius: 50%;
   background: radial-gradient(
@@ -455,30 +465,44 @@ header {
 }
 
 #weather .temp {
-  font-size: 60px;
+  font-size: 40px;
   font-weight: 200;
   color: #fff;
-  margin-right: 24px;
 }
 
+/* flex-basis:100% forces this onto its own row below the icon/temp instead of trying
+   (and failing) to fit all three on one line in the narrower 373px card -- more reliable
+   than leaving it to flex-wrap's own width math to decide where the break falls. */
 #weather .details {
-  font-size: 19px;
+  flex-basis: 100%;
+  margin-top: 10px;
+  font-size: 16px;
   font-weight: 500;
   color: #a8adc2;
-  line-height: 1.6;
+  line-height: 1.5;
 }
 
+/* Column, not space-between row -- two alert pills side by side don't fit a 373px card
+   without their own text wrapping mid-word, so they stack instead. */
 .alerts-row {
-  margin-top: 20px;
+  margin-top: 16px;
   display: flex;
-  justify-content: space-between;
+  flex-direction: column;
 }
 
-#rain-alert {
-  padding: 12px 20px;
+/* Shared by rain-alert/coat-alert/route-status-alert -- same pill shape and sizing, only
+   color/text differ per state (set via the second class each gets in app.js, e.g.
+   "alert-pill rain-urgent"). */
+.alert-pill {
+  margin-bottom: 8px;
+  padding: 10px 16px;
   border-radius: 999px;
-  font-size: 18px;
+  font-size: 15px;
   font-weight: 600;
+}
+
+.alert-pill:last-child {
+  margin-bottom: 0;
 }
 
 #rain-alert.rain-urgent {
@@ -496,13 +520,6 @@ header {
   font-weight: 500;
 }
 
-#coat-alert {
-  padding: 12px 20px;
-  border-radius: 999px;
-  font-size: 18px;
-  font-weight: 600;
-}
-
 #coat-alert.coat-needed {
   background: linear-gradient(
     135deg,
@@ -513,6 +530,51 @@ header {
 }
 
 #coat-alert.coat-ok {
+  background: rgba(255, 255, 255, 0.05);
+  color: #7b8294;
+  font-weight: 500;
+}
+
+/* min-height matched with #weather above -- see its comment. */
+#route {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  min-height: 112px;
+}
+
+#route .route-minutes {
+  font-size: 40px;
+  font-weight: 200;
+  color: #fff;
+}
+
+#route .route-unit {
+  font-size: 16px;
+  font-weight: 500;
+  color: #a8adc2;
+  margin-left: 8px;
+}
+
+#route .route-detail {
+  flex-basis: 100%;
+  margin-top: 10px;
+  font-size: 16px;
+  font-weight: 500;
+  color: #a8adc2;
+  line-height: 1.5;
+}
+
+#route-status-alert.delayed {
+  background: linear-gradient(
+    135deg,
+    rgba(255, 170, 80, 0.28),
+    rgba(255, 170, 80, 0.1)
+  );
+  color: #ffd1a3;
+}
+
+#route-status-alert.no-delay {
   background: rgba(255, 255, 255, 0.05);
   color: #7b8294;
   font-weight: 500;

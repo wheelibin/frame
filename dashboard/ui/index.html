@@ -47,6 +47,19 @@
           <div id="coat-alert"></div>
         </div>
       </section>
+      <section class="widget widget-route">
+        <!-- Rightwards arrow (U+2192, plain Arrows block -- same "no color emoji" reasoning
+             as the weather/shopping icons) stands in for a car/road icon here. -->
+        <!-- "Route to " wrapped in its own span, not left as a bare text node between two
+             spans -- display:flex on h2 (below) turns bare inline text into an anonymous
+             flex item, and this engine collapses that item's trailing space to nothing,
+             running "to" straight into the label with no gap. -->
+        <h2><span class="widget-icon">&#8594;</span><span>Route to&nbsp;</span><span id="route-label">&hellip;</span></h2>
+        <div id="route"><p class="empty">Loading&hellip;</p></div>
+        <div class="alerts-row">
+          <div id="route-status-alert"></div>
+        </div>
+      </section>
       <section class="widget widget-shopping">
         <!-- Trigram-for-heaven glyph (U+2630, same Misc Symbols block as the weather icon)
              used as a plain list icon -- the shopping cart emoji (U+1F6D2) is outside
