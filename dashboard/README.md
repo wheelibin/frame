@@ -305,6 +305,16 @@ but they're cheap to run alongside the relay rather than set up separately.
 Packaged as a Docker Compose app (`Dockerfile`, `entrypoint.sh`, `docker-compose.yml`,
 all in this directory) to match a `~/apps/<name>/docker-compose.yml` per app layout:
 
+Before shipping anything, `deploy.sh` parses `ui/app.js`/`config.js`/`config.local.js` as
+strict ES5 (`npx acorn --ecma5`) and aborts if any of them fail. The frame's WebView is
+Chrome ~44, where a single parse error anywhere kills the *entire* script silently, no
+visible error on-device (confirmed directly: an editor auto-formatter's trailing comma in
+a multi-line call — valid ES2017+, invalid here — took out the whole dashboard, including
+the clock, which doesn't even depend on a fetch). A real parser, not a hand-rolled regex:
+only one reliably catches every shape of "too new for this WebView" syntax (trailing
+commas, arrow functions, destructuring, template literals, `async`/`await`, ...) instead
+of chasing each symptom as it recurs.
+
 One-time setup, from your machine:
 
 ```sh
