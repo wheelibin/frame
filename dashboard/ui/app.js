@@ -44,12 +44,18 @@ function renderBinPill() {
   const pill = document.getElementById("bin-pill");
   if (!BIN_SCHEDULE.length) return;
 
-  const next = BIN_SCHEDULE.map((bin) => ({ bin, date: nextBinDate(bin.anchor, bin.intervalWeeks) }));
+  const next = BIN_SCHEDULE.map((bin) => ({
+    bin,
+    date: nextBinDate(bin.anchor, bin.intervalWeeks),
+  }));
   const soonest = next.reduce((a, b) => (b.date < a.date ? b : a));
   const due = next.filter((n) => n.date.getTime() === soonest.date.getTime());
 
   pill.innerHTML = due
-    .map((n) => `<img class="bin-icon" src="bin-icons/bin_${n.bin.name.toLowerCase()}.svg" alt="${n.bin.name} bin">`)
+    .map(
+      (n) =>
+        `<img class="bin-icon" src="bin-icons/bin_${n.bin.name.toLowerCase()}.svg" alt="${n.bin.name} bin">`,
+    )
     .join("");
   pill.className = "status-pill bin-pill-visible";
 }
@@ -68,10 +74,19 @@ function parseICSDate(value) {
     const d = +value.slice(6, 8);
     return { date: new Date(y, m - 1, d), allDay: true };
   }
-  const match = value.match(/^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})(Z)?$/);
+  const match = value.match(
+    /^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})(Z)?$/,
+  );
   if (!match) return null;
   const [, yearS, monthS, dayS, hourS, minuteS, secondS, utcFlag] = match;
-  const [year, month, day, hour, minute, second] = [yearS, monthS, dayS, hourS, minuteS, secondS].map(Number);
+  const [year, month, day, hour, minute, second] = [
+    yearS,
+    monthS,
+    dayS,
+    hourS,
+    minuteS,
+    secondS,
+  ].map(Number);
   const date = utcFlag
     ? new Date(Date.UTC(year, month - 1, day, hour, minute, second))
     : new Date(year, month - 1, day, hour, minute, second);
@@ -151,14 +166,25 @@ function capitalize(s) {
 // color is their position in that list, indexed straight into this array. Pink is first
 // so the first KNOWN_PEOPLE entry gets it. For anyone NOT in KNOWN_PEOPLE, order is
 // irrelevant (the hash-based fallback picks an index essentially at random).
-const PERSON_COLORS = ["#f472b6", "#4ade80", "#60a5fa", "#ff5470", "#d946ef", "#22d3ee", "#ffc857"];
+const PERSON_COLORS = [
+  "#f472b6",
+  "#4ade80",
+  "#60a5fa",
+  "#ff5470",
+  "#d946ef",
+  "#22d3ee",
+  "#ffc857",
+];
 
 function personColor(name) {
   // KNOWN_PEOPLE (config.js / config.local.js): deterministic, order-controlled color --
   // checked first. Anyone not in that list (a one-off guest tagged in the calendar) falls
   // through to the old hash-based assignment instead of breaking.
-  const knownIndex = KNOWN_PEOPLE.findIndex((p) => p.toLowerCase() === name.toLowerCase());
-  if (knownIndex !== -1) return PERSON_COLORS[knownIndex % PERSON_COLORS.length];
+  const knownIndex = KNOWN_PEOPLE.findIndex(
+    (p) => p.toLowerCase() === name.toLowerCase(),
+  );
+  if (knownIndex !== -1)
+    return PERSON_COLORS[knownIndex % PERSON_COLORS.length];
 
   let hash = 0;
   for (const char of name) {
@@ -184,8 +210,10 @@ function hexToRgb(hex) {
 function personPillStyle(name) {
   const hex = personColor(name);
   const { r, g, b } = hexToRgb(hex);
-  return `background:linear-gradient(135deg, rgba(${r},${g},${b},0.4), rgba(${r},${g},${b},0.18));` +
-    `border:1px solid rgba(${r},${g},${b},0.6);color:${hex};`;
+  return (
+    `background:linear-gradient(135deg, rgba(${r},${g},${b},0.4), rgba(${r},${g},${b},0.18));` +
+    `border:1px solid rgba(${r},${g},${b},0.6);color:${hex};`
+  );
 }
 
 // Matches "[name:category] rest of text". Returns null if the summary doesn't start
@@ -257,7 +285,8 @@ function renderTodayPeople(todayItems, tomorrowItems) {
     ...Object.keys(byTomorrow),
   ]);
   if (names.size === 0) {
-    container.innerHTML = '<p class="empty">Nothing tagged for today or tomorrow</p>';
+    container.innerHTML =
+      '<p class="empty">Nothing tagged for today or tomorrow</p>';
     return;
   }
   // Alphabetical, not calendar order -- consistent regardless of the order events
@@ -271,10 +300,14 @@ function renderTodayPeople(todayItems, tomorrowItems) {
       // lines up on the same row regardless of how many today items came before it in
       // each card.
       const todaySection = `<ul class="today-list">${
-        byToday[name] ? renderItemList(byToday[name]) : '<li class="no-items">Nothing today</li>'
+        byToday[name]
+          ? renderItemList(byToday[name])
+          : '<li class="no-items">Nothing today</li>'
       }</ul>`;
       const tomorrowSection = `<div class="tomorrow-section"><div class="tomorrow-label">Tomorrow</div><ul>${
-        byTomorrow[name] ? renderItemList(byTomorrow[name]) : '<li class="no-items">Nothing tomorrow</li>'
+        byTomorrow[name]
+          ? renderItemList(byTomorrow[name])
+          : '<li class="no-items">Nothing tomorrow</li>'
       }</ul></div>`;
       return `<div class="widget person-column"><div class="person-name" style="${personPillStyle(name)}">${capitalize(name)}</div>${todaySection}${tomorrowSection}</div>`;
     })
@@ -286,7 +319,9 @@ function renderTodayPeople(todayItems, tomorrowItems) {
   // still needs Chrome 117+ (confirmed not available on this frame's current WebView 106).
   // Measuring and pinning the tallest .today-list as a min-height on all of them instead.
   const todayLists = container.querySelectorAll(".today-list");
-  const maxTodayHeight = Math.max(...[...todayLists].map((el) => el.offsetHeight));
+  const maxTodayHeight = Math.max(
+    ...[...todayLists].map((el) => el.offsetHeight),
+  );
   todayLists.forEach((el) => {
     el.style.minHeight = `${maxTodayHeight}px`;
   });
@@ -382,8 +417,10 @@ const COAT_TEMP_THRESHOLD = 12;
 function coatAlertText(daily) {
   if (!daily) return null;
   const cold = daily.temperature_2m_min[0] < COAT_TEMP_THRESHOLD;
-  const wet = daily.precipitation_probability_max?.[0] >= RAIN_PROBABILITY_THRESHOLD;
-  if (!cold && !wet) return { text: "No coat needed", icon: "&#9989;", needed: false };
+  const wet =
+    daily.precipitation_probability_max?.[0] >= RAIN_PROBABILITY_THRESHOLD;
+  if (!cold && !wet)
+    return { text: "No coat needed", icon: "&#9989;", needed: false };
   // Umbrella takes priority over snowflake when both apply -- rain is the more
   // immediately obvious reason to grab a coat.
   const icon = wet ? "&#9748;" : "&#10052;";
@@ -395,7 +432,8 @@ function rainForecastText(minutely) {
   const now = new Date();
   for (let i = 0; i < minutely.time.length; i++) {
     const hasAmount = minutely.precipitation[i] > 0;
-    const hasProbability = minutely.precipitation_probability?.[i] >= RAIN_PROBABILITY_THRESHOLD;
+    const hasProbability =
+      minutely.precipitation_probability?.[i] >= RAIN_PROBABILITY_THRESHOLD;
     if (!hasAmount && !hasProbability) continue;
     const slot = parseISOMinute(minutely.time[i]);
     if (!slot) continue;
@@ -428,7 +466,9 @@ function renderWeather(current, daily, minutely) {
   if (!rain) {
     rainEl.innerHTML = "";
   } else {
-    rainEl.className = rain.urgent ? "alert-pill rain-urgent" : "alert-pill rain-calm";
+    rainEl.className = rain.urgent
+      ? "alert-pill rain-urgent"
+      : "alert-pill rain-calm";
     rainEl.innerHTML = `${rain.urgent ? "&#127783;&#65039; " : "&#9989; "}${rain.text}`;
   }
 
@@ -437,7 +477,9 @@ function renderWeather(current, daily, minutely) {
   if (!coat) {
     coatEl.innerHTML = "";
   } else {
-    coatEl.className = coat.needed ? "alert-pill coat-needed" : "alert-pill coat-ok";
+    coatEl.className = coat.needed
+      ? "alert-pill coat-needed"
+      : "alert-pill coat-ok";
     coatEl.innerHTML = `${coat.icon} ${coat.text}`;
   }
 }
@@ -450,7 +492,8 @@ async function loadWeather() {
     if (data.error) throw new Error(data.reason ?? "unknown error");
     renderWeather(data.current, data.daily ?? null, data.minutely_15 ?? null);
   } catch (err) {
-    document.getElementById("weather").innerHTML = `<p class="empty">Weather unavailable (${err.message})</p>`;
+    document.getElementById("weather").innerHTML =
+      `<p class="empty">Weather unavailable (${err.message})</p>`;
     document.getElementById("rain-alert").innerHTML = "";
     document.getElementById("coat-alert").innerHTML = "";
   }
@@ -493,7 +536,12 @@ const ROUTE_DELAY_THRESHOLD_SECONDS = 300;
 // reference an external ISO 13585/TPEG2-TEC table TomTom's own docs don't reproduce, so
 // "Delay" here is deliberately generic rather than guessing a specific cause. Order here
 // is display order (most to least severe), not API order.
-const ROUTE_INCIDENT_CATEGORY_ORDER = ["ROAD_CLOSURE", "JAM", "ROAD_WORK", "OTHER"];
+const ROUTE_INCIDENT_CATEGORY_ORDER = [
+  "ROAD_CLOSURE",
+  "JAM",
+  "ROAD_WORK",
+  "OTHER",
+];
 const ROUTE_INCIDENT_LABELS = {
   ROAD_CLOSURE: "Closure",
   JAM: "Jam",
@@ -514,10 +562,13 @@ function relevantIncidentCategories(trafficSections) {
   const present = new Set();
   for (const s of trafficSections) {
     const worthShowing =
-      ROUTE_INCIDENT_ALWAYS_SHOW[s.simpleCategory] || (s.delayInSeconds ?? 0) >= ROUTE_INCIDENT_MIN_DELAY_SECONDS;
+      ROUTE_INCIDENT_ALWAYS_SHOW[s.simpleCategory] ||
+      (s.delayInSeconds ?? 0) >= ROUTE_INCIDENT_MIN_DELAY_SECONDS;
     if (worthShowing) present.add(s.simpleCategory);
   }
-  return ROUTE_INCIDENT_CATEGORY_ORDER.filter((c) => present.has(c)).map((c) => ROUTE_INCIDENT_LABELS[c]);
+  return ROUTE_INCIDENT_CATEGORY_ORDER.filter((c) => present.has(c)).map(
+    (c) => ROUTE_INCIDENT_LABELS[c],
+  );
 }
 
 function renderRoute(data) {
@@ -527,7 +578,8 @@ function renderRoute(data) {
   const summary = data.route?.routes?.[0]?.summary;
 
   if (!summary) {
-    document.getElementById("route").innerHTML = '<p class="empty">Route unavailable</p>';
+    document.getElementById("route").innerHTML =
+      '<p class="empty">Route unavailable</p>';
     statusEl.innerHTML = "";
     return;
   }
@@ -537,7 +589,9 @@ function renderRoute(data) {
   // TomTom's zero-traffic best case (an empty road), not what "usually" means. The
   // historic figure is based on actual traffic patterns for this route/time, which is
   // what a "usually" comparison should be against.
-  const usualMinutes = Math.round(summary.historicTrafficTravelTimeInSeconds / 60);
+  const usualMinutes = Math.round(
+    summary.historicTrafficTravelTimeInSeconds / 60,
+  );
   document.getElementById("route").innerHTML =
     `<span class="route-minutes">${minutes}</span><span class="route-unit">min</span>` +
     `<span class="route-detail">Usually ${usualMinutes} min</span>`;
@@ -547,7 +601,9 @@ function renderRoute(data) {
   // includes the key at all. Each entry is already scoped to this specific route by
   // TomTom itself (not a bounding-box guess) -- see fetch-route.sh for why that
   // distinction mattered.
-  const trafficSections = (data.route.routes[0].sections ?? []).filter((s) => s.sectionType === "TRAFFIC");
+  const trafficSections = (data.route.routes[0].sections ?? []).filter(
+    (s) => s.sectionType === "TRAFFIC",
+  );
   const categories = relevantIncidentCategories(trafficSections);
 
   const delaySeconds = summary.trafficDelayInSeconds ?? 0;
@@ -560,7 +616,9 @@ function renderRoute(data) {
     // Leads with the overall route-level delay only once it's actually significant --
     // otherwise this is just "here's what's on the route" with no number attached, since
     // the aggregate delay isn't the point of the message in that case.
-    let text = isSignificant ? `+${Math.round(delaySeconds / 60)} min traffic` : "";
+    let text = isSignificant
+      ? `+${Math.round(delaySeconds / 60)} min traffic`
+      : "";
     if (categories.length) {
       text += text ? ` (${categories.join(", ")})` : categories.join(", ");
     }
@@ -575,7 +633,8 @@ async function loadRoute() {
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     renderRoute(await res.json());
   } catch (err) {
-    document.getElementById("route").innerHTML = `<p class="empty">Route unavailable (${err.message})</p>`;
+    document.getElementById("route").innerHTML =
+      `<p class="empty">Route unavailable (${err.message})</p>`;
     document.getElementById("route-status-alert").innerHTML = "";
   }
 }
@@ -591,7 +650,10 @@ setInterval(loadRoute, 1000 * 60 * 15);
 // comment for why a plain static-file host can't do this one.
 
 function escapeHtml(s) {
-  return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  return String(s)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
 }
 
 function renderShoppingList(items) {
@@ -604,14 +666,17 @@ function renderShoppingList(items) {
     .map(
       (item) =>
         `<li><span class="shopping-item-text">${escapeHtml(item.summary)}</span>` +
-        `<button class="shopping-remove-btn" data-uid="${escapeHtml(item.uid)}">&times;</button></li>`
+        `<button class="shopping-remove-btn" data-uid="${escapeHtml(item.uid)}">&times;</button></li>`,
     )
     .join("");
 }
 
 async function removeShoppingItem(uid) {
   try {
-    const res = await fetch(`/api/shopping-list?uid=${encodeURIComponent(uid)}`, { method: "DELETE" });
+    const res = await fetch(
+      `/api/shopping-list?uid=${encodeURIComponent(uid)}`,
+      { method: "DELETE" },
+    );
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     if (data.error) throw new Error(data.error);
@@ -660,7 +725,9 @@ async function addShoppingItem() {
   }
 }
 
-document.getElementById("shopping-add-btn").addEventListener("click", addShoppingItem);
+document
+  .getElementById("shopping-add-btn")
+  .addEventListener("click", addShoppingItem);
 document.getElementById("shopping-input").addEventListener("keydown", (e) => {
   if (e.key === "Enter") addShoppingItem();
 });
@@ -697,7 +764,10 @@ function setupTracker(name, valueId, btnId) {
   btn.addEventListener("click", async () => {
     btn.disabled = true;
     try {
-      const res = await fetch(`/api/${name}/${btn.getAttribute("data-action")}`, { method: "POST" });
+      const res = await fetch(
+        `/api/${name}/${btn.getAttribute("data-action")}`,
+        { method: "POST" },
+      );
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       if (data.error) throw new Error(data.error);
@@ -720,7 +790,11 @@ function setupTracker(name, valueId, btnId) {
 // emoji render in fixed platform green/red, clashing with the muted glass theme) -- same
 // "plain Unicode glyph over color emoji" swap as the club icon elsewhere in this file.
 // These inherit .status-fed/.status-missed's text color instead of fighting it.
-const DOG_FED_ICONS = { pending: "&ndash;", fed: "&#10003;", missed: "&#10007;" };
+const DOG_FED_ICONS = {
+  pending: "&ndash;",
+  fed: "&#10003;",
+  missed: "&#10007;",
+};
 
 function renderDogFedSlot(id, label, status) {
   const slot = document.getElementById(id);
@@ -750,7 +824,10 @@ async function loadDogFed() {
     pill.className = "status-pill dog-fed-pill-visible";
     renderDogFedSlot("dog-fed-morning", "AM", data.morning);
     renderDogFedSlot("dog-fed-afternoon", "PM", data.afternoon);
-    setTimeout(loadDogFed, data.in_window ? DOG_FED_FAST_POLL_MS : DOG_FED_SLOW_POLL_MS);
+    setTimeout(
+      loadDogFed,
+      data.in_window ? DOG_FED_FAST_POLL_MS : DOG_FED_SLOW_POLL_MS,
+    );
   } catch {
     pill.className = "status-pill";
     setTimeout(loadDogFed, DOG_FED_SLOW_POLL_MS);
@@ -787,7 +864,9 @@ kitchenSlider.addEventListener("change", async () => {
     const res = await fetch("/api/kitchen-light/brightness", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ brightness_pct: parseInt(kitchenSlider.value, 10) }),
+      body: JSON.stringify({
+        brightness_pct: parseInt(kitchenSlider.value, 10),
+      }),
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();

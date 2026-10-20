@@ -54,7 +54,7 @@ Old version, for reference: `44.0.2403.119` (pulled and preserved, see below).
    since Android 6 doesn't extract compressed native libraries for system apps):
    - `dumpsys package com.android.webview` → `versionName=106.0.5249.126`.
    - Fresh-boot logcat showed `WebViewFactory: Loading com.android.webview version
-     106.0.5249.126`, the `RelroFileCreator` log explicitly naming
+106.0.5249.126`, the `RelroFileCreator` log explicitly naming
      `/system/app/webview/lib/arm/libwebviewchromium.so` as the 32-bit lib it loaded (the
      exact path staged above), and `cr_WebViewApkApp: Launched version=106.0.5249.126` for
      both the `webview_service` and `webview_apk` processes. No `dlopen failed`/"Failed to

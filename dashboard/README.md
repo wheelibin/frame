@@ -45,7 +45,7 @@ of `.then()` chains) now that the engine supports it. `check-js-syntax.sh` (rena
 `check-es5.sh`, used by `deploy.sh`/`dev-deploy.sh`) was loosened from `--ecma5` to
 `--ecma2022` — this frame's WebView 106 actual syntax ceiling, not a blanket "latest".
 Newer syntax than ES2022 (there isn't much of it — ES2023+ added mostly new built-in
-*methods*, not new *syntax*, which this parse-only check can't catch regardless of
+_methods_, not new _syntax_, which this parse-only check can't catch regardless of
 `ecmaVersion`) should still be avoided by hand; check what Chrome 106 actually shipped
 before reaching for something newer than ES2022.
 
@@ -68,13 +68,15 @@ fill the real 1280px screen — and that scaling is exactly the kind of thing th
 soft rendering seam on weak/old GPU hardware, especially right where tile-rendering
 boundaries fall. A flat, featureless background scales to another flat background with
 nothing to reveal the seam; real layout content does. `screencap` reads the rendered
-framebuffer *before* this particular scaling pass, which is presumably why it looked clean
+framebuffer _before_ this particular scaling pass, which is presumably why it looked clean
 there specifically.
 
 Fix: force a 1:1 pixel mapping so there's no scaling to introduce a seam at all.
+
 ```html
-<meta name="viewport" content="width=1280">
+<meta name="viewport" content="width=1280" />
 ```
+
 Already in `index.html`. If this page's fixed dimensions ever change from 1280×800, update
 the `width` value here and in `style.css`'s `body` rule together.
 
@@ -93,7 +95,7 @@ you'd debug it:
    headers (Open-Meteo sends `Access-Control-Allow-Origin: *` and still failed, logged as
    `HTTP 0` — confirmed the real cause via the cert chain: `openssl s_client` showed
    `issuer=.../O=Let's Encrypt/CN=YR1`). `fetch()` on this WebView also silently refuses
-   *all* cross-origin requests regardless of CORS (logcat: `"Fetch API cannot load ..."`
+   _all_ cross-origin requests regardless of CORS (logcat: `"Fetch API cannot load ..."`
    with no further detail) — a second, independent reason the direct approach doesn't work.
 
 The fix for all of it: fetch server-side (`curl`, which has a normal up-to-date trust
@@ -103,7 +105,7 @@ WebView's broken cross-origin `fetch()`.
 
 Before reaching for this pattern on a new data source: check `curl -I` for CORS headers,
 and `openssl s_client -connect <host>:443 | openssl x509 -noout -issuer` for the CA. If a
-source has real CORS support *and* a non-Let's-Encrypt cert, direct client-side `fetch()`
+source has real CORS support _and_ a non-Let's-Encrypt cert, direct client-side `fetch()`
 might actually work — but fetch-then-serve-locally is the safe default given this WebView's
 track record, and it's what both current widgets do.
 
@@ -122,7 +124,7 @@ private repo.
 **"Today" widget**: an all-day event titled `[name:category] text` (e.g.
 `[alex:music] Piano practice`) is pulled out of the regular Upcoming list and shown in a
 dedicated widget instead, grouped by person, with a colored dot per category — a day-at-a-
-glance view of who's doing what. Only applies to *today's* tagged all-day events; tagged
+glance view of who's doing what. Only applies to _today's_ tagged all-day events; tagged
 events on other days, and anything not matching that exact bracket form, still show
 normally in Upcoming. Category colors are a small lookup in `app.js`
 (`CATEGORY_COLORS`) with a default fallback color for anything not listed — add new
@@ -234,6 +236,7 @@ incidents in the same category collapse into one mention (two `JAM` sections sti
 read "Jam"), shown in severity order, not API order.
 
 Examples, same shape the code was tested against:
+
 - Nothing worth reporting -- `"No significant delay"`
 - Only noise-filtered categories survive -- `"Roadworks"` (a 12s jam and a 55s "other"
   both got filtered; the roadworks shows regardless)
@@ -288,6 +291,7 @@ templating JS at request time instead of serving a static file.
 Edit, save, re-run. Safe to re-run repeatedly: installs `server/node_modules` the first
 time only, starts `server.js` only if it isn't already running, re-tunnels over USB (a
 no-op if already set up), and reloads the kiosk. Under the hood it's just:
+
 ```sh
 node server/server.js &                            # serve ui/, no caching (see below)
 adb -d reverse tcp:8765 tcp:8765                   # tunnel it over USB (redo after every reboot)
@@ -304,7 +308,7 @@ Express app serving `ui/` as static files, plus it sends `Cache-Control: no-stor
 every response, which fixes this at the source instead of needing to cache-bust every
 resource by hand. Separately: pointing the kiosk at `http://localhost:8765/` across two
 totally different local servers in one session (this dashboard, then an unrelated
-experiment) produced a white screen from a *different* stale-cache angle — the WebView
+experiment) produced a white screen from a _different_ stale-cache angle — the WebView
 served the other server's cached `index.html`. A `?t=$(date +%s)` query string on the page
 URL itself still handles that specific case if it ever recurs; `server.js` handles the rest.
 
@@ -321,7 +325,7 @@ all in this directory) to match a `~/apps/<name>/docker-compose.yml` per app lay
 
 Before shipping anything, `deploy.sh` parses `ui/app.js`/`config.js`/`config.local.js` as
 strict ES5 (`npx acorn --ecma5`) and aborts if any of them fail. The frame's WebView is
-Chrome ~44, where a single parse error anywhere kills the *entire* script silently, no
+Chrome ~44, where a single parse error anywhere kills the _entire_ script silently, no
 visible error on-device (confirmed directly: an editor auto-formatter's trailing comma in
 a multi-line call — valid ES2017+, invalid here — took out the whole dashboard, including
 the clock, which doesn't even depend on a fetch). A real parser, not a hand-rolled regex:

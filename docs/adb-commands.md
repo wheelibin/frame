@@ -92,5 +92,5 @@ adb -d exec-out 'dd if=/dev/block/mmcblk0p6 bs=512 count=31028 2>/dev/null' | sh
   bricked; give it a minute before resorting to a manual power cycle.
 - **`adb -d shell input keyevent KEYCODE_HOME`** is the fastest way back to the kiosk if
   stuck somewhere with ADB handy. Without ADB, see the floating Back/Dashboard buttons note
-  in [pf1007l-root-adb.md](pf1007l-root-adb.md) — the two-finger gesture only works *inside*
+  in [pf1007l-root-adb.md](pf1007l-root-adb.md) — the two-finger gesture only works _inside_
   Home HQ, not from Settings or any other app.

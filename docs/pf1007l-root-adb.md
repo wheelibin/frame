@@ -6,17 +6,17 @@ the current security state. Written after the fact from the session log, for any
 
 ## Hardware
 
-| Item                          | Value                                                              |
-| ----------------------------- | ------------------------------------------------------------------ |
-| Model                         | PF1007L (Allwinner A33)                                            |
-| Firmware                      | `YHK.F-null-A33-1001-D1024-PF1007L-V10-1680.0.20260529`            |
-| AiMOR version                 | 6.0.78                                                             |
-| Android                       | 6.0.1, API 23, `armeabi-v7a`                                       |
-| Ports                         | USB-C only, no DC jack, microSD/TF slot, recessed reset pinhole    |
+| Item                          | Value                                                                                                                                                                                                                        |
+| ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Model                         | PF1007L (Allwinner A33)                                                                                                                                                                                                      |
+| Firmware                      | `YHK.F-null-A33-1001-D1024-PF1007L-V10-1680.0.20260529`                                                                                                                                                                      |
+| AiMOR version                 | 6.0.78                                                                                                                                                                                                                       |
+| Android                       | 6.0.1, API 23, `armeabi-v7a`                                                                                                                                                                                                 |
+| Ports                         | USB-C only, no DC jack, microSD/TF slot, recessed reset pinhole                                                                                                                                                              |
 | eMMC                          | 30,777,344 sectors (15,758,000,128 bytes) — confirmed via `cat /sys/block/mmcblk0/size` post-root; this firmware ships with either this or the smaller 30,535,680-sector eMMC, and this unit turned out to be the larger one |
-| Boot partition                | `mmcblk0p6`, start sector 172032, 65,536 sectors                   |
-| Boot image SHA-256 (original) | `6c118dc1aa583797884c33cd3ac3796c72b2bd3a3f1fcafd1bf0982ae5f29e2c` |
-| Boot image SHA-256 (patched)  | `8c05b34e4b4b2bd09ea2d6f86b29e0a5b62bfd18d69b1648269a7eee55c7c84b` |
+| Boot partition                | `mmcblk0p6`, start sector 172032, 65,536 sectors                                                                                                                                                                             |
+| Boot image SHA-256 (original) | `6c118dc1aa583797884c33cd3ac3796c72b2bd3a3f1fcafd1bf0982ae5f29e2c`                                                                                                                                                           |
+| Boot image SHA-256 (patched)  | `8c05b34e4b4b2bd09ea2d6f86b29e0a5b62bfd18d69b1648269a7eee55c7c84b`                                                                                                                                                           |
 
 Both hashes match the published firmware table for this exact build in
 [wesbos/photo-frame-dashboard](https://github.com/wesbos/photo-frame-dashboard), which was
@@ -197,7 +197,7 @@ here).
 Added both hostnames to a FRITZ!Box "Blocked websites" list and attached it to the
 **Standard** access profile (rather than a profile scoped to the frame's own device entry,
 since its MAC changes on every Wi-Fi reconnect, making per-device targeting unreliable).
-This *appeared* to work once, briefly, after toggling the frame's Wi-Fi off/on — but was
+This _appeared_ to work once, briefly, after toggling the frame's Wi-Fi off/on — but was
 flaky and regressed on a later plain reboot with no config changes. Root cause: **this
 network's actual DNS server is a local Pi-hole, not FRITZ!Box's own resolver.** FRITZ!Box's
 website-blocking filters queries it resolves itself; since clients (including the frame)
@@ -216,10 +216,10 @@ it's harmless, but it is not the thing actually doing the blocking.
 **Verified result** (from the frame itself, `adb -d shell ping -c 1 -W 3 <host>`), after
 adding the Pi-hole blacklist entries:
 
-| Host                     | Result                                                        |
-| ------------------------ | -------------------------------------------------------------- |
-| `imsconnect.efercro.com` | `unknown host` — blocked                                      |
-| `iwsconnect.efercro.com` | `unknown host` — blocked                                      |
+| Host                     | Result                                                       |
+| ------------------------ | ------------------------------------------------------------ |
+| `imsconnect.efercro.com` | `unknown host` — blocked                                     |
+| `iwsconnect.efercro.com` | `unknown host` — blocked                                     |
 | `8.8.8.8`                | resolves and responds normally — general internet unaffected |
 
 ## Full backup
@@ -232,17 +232,17 @@ adb -d exec-out 'dd if=/dev/block/mmcblk0 bs=1048576 2>/dev/null' > backups/emmc
 shasum -a 256 backups/emmc-full.img > backups/emmc-full.img.sha256
 ```
 
-| | Value |
-| --- | --- |
-| Size | 15,758,000,128 bytes — exact match to the eMMC's reported size |
-| SHA-256 | `150a54ccf8fc3cca9ca726070ab093dc7064a2d71ec3b3092f0a6faf62609077` |
+|             | Value                                                                                                                                             |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Size        | 15,758,000,128 bytes — exact match to the eMMC's reported size                                                                                    |
+| SHA-256     | `150a54ccf8fc3cca9ca726070ab093dc7064a2d71ec3b3092f0a6faf62609077`                                                                                |
 | Cross-check | boot-partition region of this backup, a fresh independent read straight from the device, and the previously-recorded patched-image hash all agree |
 
 Stored at `backups/emmc-full.img` (gitignored — kept private per the upstream project's own
 rules, never commit this). This captures the **current** state: boot already patched,
 userdata already wiped by the earlier factory resets. It is not a path back to pristine
 factory state — see the note on this above. It's a safety net against anything going wrong
-*from here on*.
+_from here on_.
 
 ## Current state / what's not done yet
 
@@ -261,14 +261,14 @@ factory state — see the note on this above. It's a safety net against anything
       physical screen.
 - [x] Home HQ's floating navigation accessibility service enabled — **this is the actual
       escape hatch, not the two-finger gesture.** This firmware has no system nav bar, and
-      the two-finger menu only works *inside* Home HQ: it cannot get you back once you're in
+      the two-finger menu only works _inside_ Home HQ: it cannot get you back once you're in
       Settings or any other app. Learned this by getting stuck in Settings after changing
       the timezone, with no physical way out. Fixed with:
-      ```sh
-      adb -d shell settings put secure enabled_accessibility_services com.wesbos.homehq/.NavigationService
-      adb -d shell settings put secure accessibility_enabled 1
-      adb -d shell pm grant com.wesbos.homehq android.permission.WRITE_SECURE_SETTINGS
-      ```
+      `sh
+    adb -d shell settings put secure enabled_accessibility_services com.wesbos.homehq/.NavigationService
+    adb -d shell settings put secure accessibility_enabled 1
+    adb -d shell pm grant com.wesbos.homehq android.permission.WRITE_SECURE_SETTINGS
+    `
       The last line matters on its own: per the kiosk README, this firmware drops the
       service from the enabled list after every `adb install -r` or force-stop of Home HQ;
       the grant lets Home HQ silently re-enable itself each time it starts. Gives small
