@@ -16,24 +16,34 @@ Everything else (`Dockerfile`, `docker-compose.yml`, `entrypoint.sh`, `deploy.sh
 `dev-deploy.sh`) stays at the `dashboard/` root, since Docker/deploy need both folders
 together, not just one.
 
-## The WebView 44 trap
+## The WebView 44 trap (historical — fixed via WebView upgrade)
 
-This frame ships WebView **44** (from ~2015/16). Modern JS syntax that feels completely
-safe to use today will cause a **silent syntax error that kills the entire script** — not
-just the feature that used it. First version of `app.js` used `async`/`await` (needs Chrome
-55+) and array destructuring (needs Chrome 49+); the result was that even the clock, in the
-same file but with no connection to the calendar code, stopped updating. No console visible
-on-device to see the actual error — the only symptom was "nothing happens."
+This frame originally shipped WebView **44** (from ~2015/16). Modern JS syntax that feels
+completely safe to use today caused a **silent syntax error that killed the entire
+script** — not just the feature that used it. First version of `app.js` used
+`async`/`await` (needs Chrome 55+) and array destructuring (needs Chrome 49+); the result
+was that even the clock, in the same file but with no connection to the calendar code,
+stopped updating. No console visible on-device to see the actual error — the only symptom
+was "nothing happens." Later in the same build, a Prettier-added trailing comma in a
+multi-line call (valid ES2017+, invalid on this engine) reproduced the exact same failure
+— confirming this wasn't a one-off, it's a real recurring hazard class on this engine.
 
-**Known-safe**: `var`, plain `function`, `.then()`/`.catch()` promise chains, `fetch()`,
-regular string concatenation, `for` loops, array `.filter()`/`.sort()`/`.map()`.
-**Known-unsafe**: `async`/`await`, destructuring (`const [a, b] = x`), probably arrow
-functions and template literals too (not individually isolated — just avoid all of it).
+**The system WebView has since been upgraded to 106** (sideloaded via the upstream repo's
+`allwinner-a33-pf1007l.md` §6 procedure — see
+[`docs/pf1007l-webview-106.md`](../docs/pf1007l-webview-106.md) for exactly what was done
+on this unit, verified hashes, and the rollback path). All of the constraints below are
+now historical, not live:
 
-If a future feature genuinely needs modern JS/CSS, the documented fix is upgrading the
-system WebView to 106 (see [pf1007l-root-adb.md](../docs/pf1007l-root-adb.md) and the
-upstream repo's `allwinner-a33-pf1007l.md` section 6) — deliberately not done yet, since
-nothing so far has actually needed it.
+**Was known-safe**: `var`, plain `function`, `.then()`/`.catch()` promise chains,
+`fetch()`, regular string concatenation, `for` loops, array `.filter()`/`.sort()`/`.map()`.
+**Was known-unsafe**: `async`/`await`, destructuring (`const [a, b] = x`), arrow functions,
+template literals, trailing commas in multi-line calls.
+
+`check-es5.sh` (used by `deploy.sh`/`dev-deploy.sh`) still enforces strict ES5 on
+`ui/*.js` — deliberately left in place rather than loosened just because the engine now
+allows more. It costs nothing to keep and only blocks syntax nothing here currently needs;
+loosen it (to the minimum `ecmaVersion` actually required) only when a real feature
+specifically calls for modern JS, not proactively.
 
 ## The missing-viewport-meta trap
 
