@@ -31,8 +31,11 @@
 
   --shadow-drop: 0 8px 24px rgba(0, 0, 0, 0.35);
 
-  --gap-card: 32px;
-  --gap-section: 24px;
+  /* One gap value for every row-gap/column-gap/page-edge margin in the layout (grid below)
+     -- previously two separate variables (32px between row1's widgets, 24px everywhere
+     else) made the horizontal widget gap visibly wider than the vertical row gap, and the
+     page's top/bottom edge padding didn't match either. */
+  --gap: 24px;
 
   --transition-fast: 150ms ease;
 }
@@ -107,13 +110,17 @@ body {
     Arial,
     sans-serif;
   overflow: hidden;
-  display: flex;
-  flex-direction: column;
+  /* Single grid for the whole page: header row, then main filling what's left. Row-gap
+     plus equal top/bottom padding here is what keeps the header-to-content gap and the
+     page's top/bottom edge margins consistent -- previously the top edge came from
+     header's own padding-top (30px) while the bottom edge had no matching padding at all. */
+  display: grid;
+  grid-template-rows: auto 1fr;
+  row-gap: var(--gap);
+  padding: var(--gap) 48px;
 }
 
 header {
-  flex-shrink: 0;
-  padding: 30px 48px 24px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -133,7 +140,7 @@ header {
   flex: 1;
   min-width: 0;
   text-align: center;
-  margin: 0 var(--gap-card);
+  margin: 0 var(--gap);
   padding: 10px 24px;
   border: 1px solid var(--surface-border);
   border-radius: 16px;
@@ -210,7 +217,6 @@ header {
 }
 
 .controls-row {
-  flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -297,32 +303,26 @@ header {
   font-size: 22px;
   font-weight: 500;
   color: var(--color-muted);
-  margin-left: var(--gap-section);
+  margin-left: var(--gap);
 }
 
 .widgets {
-  flex: 1;
   min-height: 0;
-  padding: 0 48px;
-  display: flex;
-  flex-direction: column;
-  gap: var(--gap-section);
+  display: grid;
+  grid-template-rows: auto auto 1fr;
+  row-gap: var(--gap);
 }
 
 .row1 {
-  display: flex;
-  gap: var(--gap-card);
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  column-gap: var(--gap);
 }
 
 .widget {
-  /* 373px: row1 has 3 widgets (weather/route/shopping). Content box is 1184px
-     (1280 - 48px padding each side), minus two 32px gaps: (1184 - 64) / 3 = 373.33,
-     floored -- 1px of slack on the row's right edge beats fighting for the exact
-     fraction. A plain static px value, computed once by hand instead of dynamically in
-     CSS, sidesteps flex-basis rounding/percentage quirks entirely. This is a physical
-     fixed-screen computation (1280x800 never changes), not a WebView-version workaround,
-     so it stays regardless of engine capability. */
-  width: 373px;
+  min-width: 0; /* same grid-item shrink gotcha as #shopping-input/.person-column
+                   elsewhere in this file -- without it, wide content can keep a card
+                   from shrinking to its equal 1fr share. */
   background: var(--card-gradient);
   backdrop-filter: blur(16px);
   border: 1px solid var(--surface-border);
@@ -610,30 +610,24 @@ header {
 /* Each person gets their own widget instead of a bare name pill floating over shared
    whitespace, or all being boxed inside one shared "Today" container -- same "card with
    glow + blur" treatment as .widget-weather/.widget-shopping above, just per person. One
-   row, no wrap: flex:1 on each card grows it to fill whatever width the row has, same
-   "equal flexible share" as .row1's widgets. flex:1 + min-height:0 on #today-people (its
-   parent .widgets is a column flex container) grows the row to fill whatever vertical
+   row, 3 equal columns, same grid pattern as .row1 -- min-height:0 lets this row (the
+   last in .widgets' row track list, sized 1fr) shrink/grow to fill whatever vertical
    space is left under row1. align-items:stretch makes every card match the tallest one,
    so the cards' backgrounds fill the full row instead of leaving dead space below --
    content inside stays top-aligned (not re-centered into that extra height) so every
    name pill sits on the same row across cards. */
 #today-people {
-  flex: 1;
   min-height: 0;
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  column-gap: var(--gap);
   align-items: stretch;
-  gap: var(--gap-section);
 }
 
-/* .widget's own width:373px is tuned for row1's 32px gaps -- this row uses a 24px gap
-   (--gap-section) instead, so width stays flex:1 here rather than inheriting that fixed
-   value. */
 .person-column {
-  width: auto;
-  flex: 1;
-  min-width: 0; /* same flex-item shrink gotcha as #shopping-input above -- without it a
-                   long item line can keep the card from shrinking to its equal share and
-                   it overflows past the row instead. */
+  min-width: 0; /* same grid-item shrink gotcha as .widget/#shopping-input above --
+                   without it a long item line can keep the card from shrinking to its
+                   equal share and it overflows past the row instead. */
   display: flex;
   flex-direction: column;
   align-items: center;
