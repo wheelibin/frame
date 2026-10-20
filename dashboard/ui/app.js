@@ -1,8 +1,14 @@
 function tick() {
   const now = new Date();
+  // hour12 explicit, not left to the locale default -- the frame's Android locale is
+  // en-US (12h by CLDR convention), which Chromium's Intl follows regardless of Android's
+  // own "24-hour format" system setting (confirmed directly: the device has that setting
+  // on, and the WebView still rendered 12h -- that toggle only wires into native Android
+  // apps via DateFormat.is24HourFormat(), not into web content's Intl/toLocaleTimeString).
   document.getElementById("clock").textContent = now.toLocaleTimeString([], {
     hour: "numeric",
     minute: "2-digit",
+    hour12: false,
   });
   document.getElementById("date").textContent = now.toLocaleDateString([], {
     weekday: "long",
