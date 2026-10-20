@@ -39,11 +39,15 @@ now historical, not live:
 **Was known-unsafe**: `async`/`await`, destructuring (`const [a, b] = x`), arrow functions,
 template literals, trailing commas in multi-line calls.
 
-`check-es5.sh` (used by `deploy.sh`/`dev-deploy.sh`) still enforces strict ES5 on
-`ui/*.js` — deliberately left in place rather than loosened just because the engine now
-allows more. It costs nothing to keep and only blocks syntax nothing here currently needs;
-loosen it (to the minimum `ecmaVersion` actually required) only when a real feature
-specifically calls for modern JS, not proactively.
+`ui/app.js` has since been rewritten in modern syntax throughout (`const`/`let`, arrow
+functions, template literals, destructuring, optional chaining, `async`/`await` in place
+of `.then()` chains) now that the engine supports it. `check-js-syntax.sh` (renamed from
+`check-es5.sh`, used by `deploy.sh`/`dev-deploy.sh`) was loosened from `--ecma5` to
+`--ecma2022` — this frame's WebView 106 actual syntax ceiling, not a blanket "latest".
+Newer syntax than ES2022 (there isn't much of it — ES2023+ added mostly new built-in
+*methods*, not new *syntax*, which this parse-only check can't catch regardless of
+`ecmaVersion`) should still be avoided by hand; check what Chrome 106 actually shipped
+before reaching for something newer than ES2022.
 
 ## The missing-viewport-meta trap
 

@@ -18,7 +18,7 @@ fi
 
 REMOTE_APPS_DIR="~/apps"
 
-./check-es5.sh || { echo "Aborting deploy." >&2; exit 1; }
+./check-js-syntax.sh || { echo "Aborting deploy." >&2; exit 1; }
 
 ssh "$HOST" "mkdir -p $REMOTE_APPS_DIR"
 COPYFILE_DISABLE=1 tar czf - --exclude='.git' --exclude='.deploy.env' -C .. dashboard \

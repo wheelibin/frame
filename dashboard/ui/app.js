@@ -1,5 +1,5 @@
 function tick() {
-  var now = new Date();
+  const now = new Date();
   document.getElementById("clock").textContent = now.toLocaleTimeString([], {
     hour: "numeric",
     minute: "2-digit",
@@ -17,13 +17,13 @@ setInterval(tick, 1000 * 30);
 // gives each bin's most recently known collection date plus how often it repeats --
 // projected forward here so the list doesn't need re-typing every few weeks.
 function parseLocalDate(s) {
-  var m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  return new Date(+m[1], +m[2] - 1, +m[3]);
+  const [, y, m, d] = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  return new Date(+y, +m - 1, +d);
 }
 
 function nextBinDate(anchor, intervalWeeks) {
-  var date = parseLocalDate(anchor);
-  var today = new Date();
+  const date = parseLocalDate(anchor);
+  const today = new Date();
   today.setHours(0, 0, 0, 0);
   // setDate, not elapsed-ms addition -- operates in local calendar-day space, so it
   // can't drift an hour off across a DST transition the way adding intervalWeeks*7*24h
@@ -35,32 +35,16 @@ function nextBinDate(anchor, intervalWeeks) {
 }
 
 function renderBinPill() {
-  var pill = document.getElementById("bin-pill");
+  const pill = document.getElementById("bin-pill");
   if (!BIN_SCHEDULE.length) return;
 
-  var next = BIN_SCHEDULE.map(function (bin) {
-    return { bin: bin, date: nextBinDate(bin.anchor, bin.intervalWeeks) };
-  });
-  var soonest = next.reduce(function (a, b) {
-    return b.date < a.date ? b : a;
-  });
-  var due = next.filter(function (n) {
-    return n.date.getTime() === soonest.date.getTime();
-  });
+  const next = BIN_SCHEDULE.map((bin) => ({ bin, date: nextBinDate(bin.anchor, bin.intervalWeeks) }));
+  const soonest = next.reduce((a, b) => (b.date < a.date ? b : a));
+  const due = next.filter((n) => n.date.getTime() === soonest.date.getTime());
 
-  var icons = due
-    .map(function (n) {
-      return (
-        '<img class="bin-icon" src="bin-icons/bin_' +
-        n.bin.name.toLowerCase() +
-        '.svg" alt="' +
-        n.bin.name +
-        ' bin">'
-      );
-    })
+  pill.innerHTML = due
+    .map((n) => `<img class="bin-icon" src="bin-icons/bin_${n.bin.name.toLowerCase()}.svg" alt="${n.bin.name} bin">`)
     .join("");
-
-  pill.innerHTML = icons;
   pill.className = "status-pill bin-pill-visible";
 }
 
@@ -70,40 +54,29 @@ setInterval(renderBinPill, 1000 * 60 * 60);
 // --- Calendar: parses calendar.ics (fetched locally by fetch-calendar.sh, same-origin
 // to avoid iCloud's lack of CORS headers). Handles plain VEVENTs only, no RRULE expansion
 // (recurring events won't show) -- add that if it turns out to matter.
-//
-// Written in ES5-only syntax on purpose: this frame's stock WebView is version 44, which
-// has no async/await (Chrome 55+) and no destructuring (Chrome 49+). A single syntax error
-// anywhere in this file silently kills the whole script, including the clock above.
 
 function parseICSDate(value) {
   if (/^\d{8}$/.test(value)) {
-    var y = +value.slice(0, 4),
-      m = +value.slice(4, 6),
-      d = +value.slice(6, 8);
+    const y = +value.slice(0, 4);
+    const m = +value.slice(4, 6);
+    const d = +value.slice(6, 8);
     return { date: new Date(y, m - 1, d), allDay: true };
   }
-  var match = value.match(/^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})(Z)?$/);
+  const match = value.match(/^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})(Z)?$/);
   if (!match) return null;
-  var year = +match[1],
-    month = +match[2],
-    day = +match[3],
-    hour = +match[4],
-    minute = +match[5],
-    second = +match[6],
-    isUtc = !!match[7];
-  var date = isUtc
+  const [, yearS, monthS, dayS, hourS, minuteS, secondS, utcFlag] = match;
+  const [year, month, day, hour, minute, second] = [yearS, monthS, dayS, hourS, minuteS, secondS].map(Number);
+  const date = utcFlag
     ? new Date(Date.UTC(year, month - 1, day, hour, minute, second))
     : new Date(year, month - 1, day, hour, minute, second);
-  return { date: date, allDay: false };
+  return { date, allDay: false };
 }
 
 function parseICS(text) {
-  var unfolded = text.replace(/\r\n/g, "\n").replace(/\n[ \t]/g, "");
-  var lines = unfolded.split("\n");
-  var events = [];
-  var cur = null;
-  for (var i = 0; i < lines.length; i++) {
-    var line = lines[i];
+  const unfolded = text.replace(/\r\n/g, "\n").replace(/\n[ \t]/g, "");
+  const events = [];
+  let cur = null;
+  for (const line of unfolded.split("\n")) {
     if (line === "BEGIN:VEVENT") {
       cur = {};
       continue;
@@ -114,10 +87,10 @@ function parseICS(text) {
       continue;
     }
     if (!cur) continue;
-    var colon = line.indexOf(":");
+    const colon = line.indexOf(":");
     if (colon < 0) continue;
-    var name = line.slice(0, colon).split(";")[0];
-    var value = line.slice(colon + 1);
+    const name = line.slice(0, colon).split(";")[0];
+    const value = line.slice(colon + 1);
     if (name === "SUMMARY") cur.summary = value;
     if (name === "DTSTART") cur.start = parseICSDate(value);
     if (name === "DTEND") cur.end = parseICSDate(value);
@@ -130,7 +103,7 @@ function parseICS(text) {
 // on other days, still show in the regular Upcoming list below -- only today's tagged
 // all-day items move into this widget, to avoid showing the same thing twice.
 
-var CATEGORY_COLORS = {
+const CATEGORY_COLORS = {
   music: "#c77dff",
   sport: "#4caf7d",
   school: "#4a90d9",
@@ -138,11 +111,11 @@ var CATEGORY_COLORS = {
   appointment: "#e85d5d",
   club: "#2dd4bf",
 };
-var DEFAULT_CATEGORY_COLOR = "#9aa1b4";
+const DEFAULT_CATEGORY_COLOR = "#9aa1b4";
 
 // Only some categories get an icon; everything else keeps the plain colored dot --
 // add more here as they turn out to be worth the visual distinction.
-var CATEGORY_ICONS = {
+const CATEGORY_ICONS = {
   music: "🎵",
   club: "★", // the ticket emoji (🎟️) didn't render right on this device's font; the club
   // suit symbol (♣) wasn't liked either -- plain pre-emoji Unicode star,
@@ -150,11 +123,11 @@ var CATEGORY_ICONS = {
 };
 
 function categoryColor(category) {
-  return CATEGORY_COLORS[category.toLowerCase()] || DEFAULT_CATEGORY_COLOR;
+  return CATEGORY_COLORS[category.toLowerCase()] ?? DEFAULT_CATEGORY_COLOR;
 }
 
 function categoryIcon(category) {
-  return CATEGORY_ICONS[category.toLowerCase()] || null;
+  return CATEGORY_ICONS[category.toLowerCase()] ?? null;
 }
 
 function capitalize(s) {
@@ -172,28 +145,18 @@ function capitalize(s) {
 // color is their position in that list, indexed straight into this array. Pink is first
 // so the first KNOWN_PEOPLE entry gets it. For anyone NOT in KNOWN_PEOPLE, order is
 // irrelevant (the hash-based fallback picks an index essentially at random).
-var PERSON_COLORS = [
-  "#f472b6",
-  "#4ade80",
-  "#60a5fa",
-  "#ff5470",
-  "#d946ef",
-  "#22d3ee",
-  "#ffc857",
-];
+const PERSON_COLORS = ["#f472b6", "#4ade80", "#60a5fa", "#ff5470", "#d946ef", "#22d3ee", "#ffc857"];
 
 function personColor(name) {
   // KNOWN_PEOPLE (config.js / config.local.js): deterministic, order-controlled color --
   // checked first. Anyone not in that list (a one-off guest tagged in the calendar) falls
   // through to the old hash-based assignment instead of breaking.
-  for (var i = 0; i < KNOWN_PEOPLE.length; i++) {
-    if (KNOWN_PEOPLE[i].toLowerCase() === name.toLowerCase()) {
-      return PERSON_COLORS[i % PERSON_COLORS.length];
-    }
-  }
-  var hash = 0;
-  for (var j = 0; j < name.length; j++) {
-    hash = (hash * 31 + name.charCodeAt(j)) % 997;
+  const knownIndex = KNOWN_PEOPLE.findIndex((p) => p.toLowerCase() === name.toLowerCase());
+  if (knownIndex !== -1) return PERSON_COLORS[knownIndex % PERSON_COLORS.length];
+
+  let hash = 0;
+  for (const char of name) {
+    hash = (hash * 31 + char.charCodeAt(0)) % 997;
   }
   return PERSON_COLORS[hash % PERSON_COLORS.length];
 }
@@ -213,34 +176,23 @@ function hexToRgb(hex) {
 // per feedback ("brighter and more distinctive") -- the original 0.28/0.1 read as a bit
 // too faint/washed-out to tell apart at a glance.
 function personPillStyle(name) {
-  var hex = personColor(name);
-  var rgb = hexToRgb(hex);
-  var rgbStr = rgb.r + "," + rgb.g + "," + rgb.b;
-  return (
-    "background:linear-gradient(135deg, rgba(" +
-    rgbStr +
-    ",0.4), rgba(" +
-    rgbStr +
-    ",0.18));" +
-    "border:1px solid rgba(" +
-    rgbStr +
-    ",0.6);" +
-    "color:" +
-    hex +
-    ";"
-  );
+  const hex = personColor(name);
+  const { r, g, b } = hexToRgb(hex);
+  return `background:linear-gradient(135deg, rgba(${r},${g},${b},0.4), rgba(${r},${g},${b},0.18));` +
+    `border:1px solid rgba(${r},${g},${b},0.6);color:${hex};`;
 }
 
 // Matches "[name:category] rest of text". Returns null if the summary doesn't start
 // with that exact bracket form.
 function parseTaggedSummary(summary) {
-  var match = (summary || "").match(/^\[([^:\]]+):([^\]]+)\]\s*(.*)$/);
+  const match = (summary ?? "").match(/^\[([^:\]]+):([^\]]+)\]\s*(.*)$/);
   if (!match) return null;
-  return { name: match[1], category: match[2], text: match[3] };
+  const [, name, category, text] = match;
+  return { name, category, text };
 }
 
 function isToday(date) {
-  var now = new Date();
+  const now = new Date();
   return (
     date.getFullYear() === now.getFullYear() &&
     date.getMonth() === now.getMonth() &&
@@ -249,7 +201,7 @@ function isToday(date) {
 }
 
 function isTomorrow(date) {
-  var now = new Date();
+  const now = new Date();
   now.setDate(now.getDate() + 1);
   return (
     date.getFullYear() === now.getFullYear() &&
@@ -259,146 +211,104 @@ function isTomorrow(date) {
 }
 
 function groupByPerson(items) {
-  var byPerson = {};
-  items.forEach(function (item) {
-    // Lowercased so this lines up with KNOWN_PEOPLE's case-insensitive matching below
-    var key = item.name.toLowerCase();
-    if (!byPerson[key]) byPerson[key] = [];
-    byPerson[key].push(item);
-  });
+  const byPerson = {};
+  for (const item of items) {
+    // Lowercased so this lines up with KNOWN_PEOPLE's case-insensitive matching below.
+    const key = item.name.toLowerCase();
+    (byPerson[key] ??= []).push(item);
+  }
   return byPerson;
 }
 
 function renderItemList(items) {
   return items
     .slice()
-    .sort(function (a, b) {
-      return a.category.localeCompare(b.category);
-    })
-    .map(function (item) {
-      var icon = categoryIcon(item.category);
-      var inner = icon
-        ? '<span class="category-icon">' + icon + "</span>"
-        : '<span class="category-dot" style="background:' +
-          categoryColor(item.category) +
-          '"></span>';
+    .sort((a, b) => a.category.localeCompare(b.category))
+    .map((item) => {
+      const icon = categoryIcon(item.category);
+      const marker = icon
+        ? `<span class="category-icon">${icon}</span>`
+        : `<span class="category-dot" style="background:${categoryColor(item.category)}"></span>`;
       // Text wrapped in its own inline-block, centered by the <li>'s text-align:center
       // based purely on the text's own width -- the marker is then positioned outside
       // that box (not inside it), so it doesn't pull the centering off to one side.
-      return (
-        '<li><span class="item-text"><span class="category-marker">' +
-        inner +
-        "</span>" +
-        (item.text || "(untitled)") +
-        "</span></li>"
-      );
+      return `<li><span class="item-text"><span class="category-marker">${marker}</span>${item.text || "(untitled)"}</span></li>`;
     })
     .join("");
 }
 
 function renderTodayPeople(todayItems, tomorrowItems) {
-  var container = document.getElementById("today-people");
-  var byToday = groupByPerson(todayItems);
-  var byTomorrow = groupByPerson(tomorrowItems);
-  var names = {};
+  const container = document.getElementById("today-people");
+  const byToday = groupByPerson(todayItems);
+  const byTomorrow = groupByPerson(tomorrowItems);
   // Everyone in KNOWN_PEOPLE (config.js/config.local.js) always gets a card, even with
   // nothing tagged today or tomorrow -- otherwise the "Today" widget's line-up silently
   // shrinks to whoever happens to have an event, which reads as "forgot someone" rather
   // than "nothing for them today".
-  KNOWN_PEOPLE.forEach(function (n) {
-    names[n.toLowerCase()] = true;
-  });
-  Object.keys(byToday).forEach(function (n) {
-    names[n] = true;
-  });
-  Object.keys(byTomorrow).forEach(function (n) {
-    names[n] = true;
-  });
-  var order = Object.keys(names);
-  if (order.length === 0) {
-    container.innerHTML =
-      '<p class="empty">Nothing tagged for today or tomorrow</p>';
+  const names = new Set([
+    ...KNOWN_PEOPLE.map((n) => n.toLowerCase()),
+    ...Object.keys(byToday),
+    ...Object.keys(byTomorrow),
+  ]);
+  if (names.size === 0) {
+    container.innerHTML = '<p class="empty">Nothing tagged for today or tomorrow</p>';
     return;
   }
   // Alphabetical, not calendar order -- consistent regardless of the order events
   // happen to appear in the ICS feed.
-  order.sort();
+  const order = [...names].sort();
 
   container.innerHTML = order
-    .map(function (name) {
+    .map((name) => {
       // Always rendered, even with no today items for this person -- it still needs to
       // take part in the max-height equalization below, so every card's Tomorrow section
       // lines up on the same row regardless of how many today items came before it in
       // each card.
-      var todaySection =
-        '<ul class="today-list">' +
-        (byToday[name]
-          ? renderItemList(byToday[name])
-          : '<li class="no-items">Nothing today</li>') +
-        "</ul>";
-      var tomorrowSection =
-        '<div class="tomorrow-section"><div class="tomorrow-label">Tomorrow</div><ul>' +
-        (byTomorrow[name]
-          ? renderItemList(byTomorrow[name])
-          : '<li class="no-items">Nothing tomorrow</li>') +
-        "</ul></div>";
-      return (
-        '<div class="person-column"><div class="person-name" style="' +
-        personPillStyle(name) +
-        '">' +
-        capitalize(name) +
-        "</div>" +
-        todaySection +
-        tomorrowSection +
-        "</div>"
-      );
+      const todaySection = `<ul class="today-list">${
+        byToday[name] ? renderItemList(byToday[name]) : '<li class="no-items">Nothing today</li>'
+      }</ul>`;
+      const tomorrowSection = `<div class="tomorrow-section"><div class="tomorrow-label">Tomorrow</div><ul>${
+        byTomorrow[name] ? renderItemList(byTomorrow[name]) : '<li class="no-items">Nothing tomorrow</li>'
+      }</ul></div>`;
+      return `<div class="person-column"><div class="person-name" style="${personPillStyle(name)}">${capitalize(name)}</div>${todaySection}${tomorrowSection}</div>`;
     })
     .join("");
 
   // Cards are independent flex columns -- nothing ties one person's today-list height to
   // another's, so with different item counts the Tomorrow divider would start at a
   // different row in each card. CSS Grid subgrid would solve this declaratively, but
-  // needs Chrome 117+, way past this WebView's ~44. Measuring and pinning the tallest
-  // .today-list as a min-height on all of them instead -- plain DOM measurement, same
-  // "compute it by hand in JS" approach as the 576px widget width elsewhere in this file.
-  var todayLists = container.querySelectorAll(".today-list");
-  var maxTodayHeight = 0;
-  for (var i = 0; i < todayLists.length; i++) {
-    maxTodayHeight = Math.max(maxTodayHeight, todayLists[i].offsetHeight);
-  }
-  for (var j = 0; j < todayLists.length; j++) {
-    todayLists[j].style.minHeight = maxTodayHeight + "px";
-  }
+  // still needs Chrome 117+ (confirmed not available on this frame's current WebView 106).
+  // Measuring and pinning the tallest .today-list as a min-height on all of them instead.
+  const todayLists = container.querySelectorAll(".today-list");
+  const maxTodayHeight = Math.max(...[...todayLists].map((el) => el.offsetHeight));
+  todayLists.forEach((el) => {
+    el.style.minHeight = `${maxTodayHeight}px`;
+  });
 }
 
 // Upcoming (non-today, untagged) events no longer have a widget of their own -- replaced
 // by the shopping list -- so this only extracts today's and tomorrow's tagged items for
 // renderTodayPeople now. Still needs the full calendar.ics fetch/parse either way, since
 // that's the only source for the Today widget too.
-function loadCalendar() {
-  var today = document.getElementById("today-people");
-  fetch("calendar.ics", { cache: "no-store" })
-    .then(function (res) {
-      if (!res.ok) throw new Error("HTTP " + res.status);
-      return res.text();
-    })
-    .then(function (text) {
-      var events = parseICS(text);
-      var taggedToday = [];
-      var taggedTomorrow = [];
-      events.forEach(function (e) {
-        if (!e.start || !e.start.allDay) return;
-        var tagged = parseTaggedSummary(e.summary);
-        if (!tagged) return;
-        if (isToday(e.start.date)) taggedToday.push(tagged);
-        else if (isTomorrow(e.start.date)) taggedTomorrow.push(tagged);
-      });
-      renderTodayPeople(taggedToday, taggedTomorrow);
-    })
-    .catch(function (err) {
-      today.innerHTML =
-        '<p class="empty">Calendar unavailable (' + err.message + ")</p>";
-    });
+async function loadCalendar() {
+  const today = document.getElementById("today-people");
+  try {
+    const res = await fetch("calendar.ics", { cache: "no-store" });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const events = parseICS(await res.text());
+    const taggedToday = [];
+    const taggedTomorrow = [];
+    for (const e of events) {
+      if (!e.start?.allDay) continue;
+      const tagged = parseTaggedSummary(e.summary);
+      if (!tagged) continue;
+      if (isToday(e.start.date)) taggedToday.push(tagged);
+      else if (isTomorrow(e.start.date)) taggedTomorrow.push(tagged);
+    }
+    renderTodayPeople(taggedToday, taggedTomorrow);
+  } catch (err) {
+    today.innerHTML = `<p class="empty">Calendar unavailable (${err.message})</p>`;
+  }
 }
 
 loadCalendar();
@@ -411,7 +321,7 @@ setInterval(loadCalendar, 1000 * 60 * 15);
 // WMO weather codes: https://open-meteo.com/en/docs -- only the common buckets are
 // mapped, not all 100, that's enough for a home dashboard.
 
-var WEATHER_CODES = {
+const WEATHER_CODES = {
   0: ["☀️", "Clear"],
   1: ["🌤️", "Mostly clear"],
   2: ["⛅", "Partly cloudy"],
@@ -436,13 +346,14 @@ var WEATHER_CODES = {
 };
 
 function weatherInfo(code) {
-  return WEATHER_CODES[code] || ["☁️", "Unknown"];
+  return WEATHER_CODES[code] ?? ["☁️", "Unknown"];
 }
 
 function parseISOMinute(s) {
-  var m = s.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/);
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/);
   if (!m) return null;
-  return new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]);
+  const [, y, mo, d, h, mi] = m;
+  return new Date(+y, +mo - 1, +d, +h, +mi);
 }
 
 // First slot with actual forecast rainfall (not just elevated probability) within the
@@ -455,112 +366,88 @@ function parseISOMinute(s) {
 // confirmed directly: real on-and-off rain happening with precipitation flat 0.0mm for
 // every near-term slot, but probability already >50% and climbing. Triggering on amount
 // alone missed it entirely.
-var RAIN_PROBABILITY_THRESHOLD = 60;
+const RAIN_PROBABILITY_THRESHOLD = 60;
 
 // Below this today's low (°C), or if today's rain probability clears
 // RAIN_PROBABILITY_THRESHOLD, the coat pill lights up -- kids-leaving-for-school framing,
 // not a precise comfort model.
-var COAT_TEMP_THRESHOLD = 12;
+const COAT_TEMP_THRESHOLD = 12;
 
 function coatAlertText(daily) {
   if (!daily) return null;
-  var cold = daily.temperature_2m_min[0] < COAT_TEMP_THRESHOLD;
-  var wet =
-    daily.precipitation_probability_max &&
-    daily.precipitation_probability_max[0] >= RAIN_PROBABILITY_THRESHOLD;
-  if (!cold && !wet)
-    return { text: "No coat needed", icon: "&#9989;", needed: false };
+  const cold = daily.temperature_2m_min[0] < COAT_TEMP_THRESHOLD;
+  const wet = daily.precipitation_probability_max?.[0] >= RAIN_PROBABILITY_THRESHOLD;
+  if (!cold && !wet) return { text: "No coat needed", icon: "&#9989;", needed: false };
   // Umbrella takes priority over snowflake when both apply -- rain is the more
   // immediately obvious reason to grab a coat.
-  var icon = wet ? "&#9748;" : "&#10052;";
-  return { text: "Take a coat today", icon: icon, needed: true };
+  const icon = wet ? "&#9748;" : "&#10052;";
+  return { text: "Take a coat today", icon, needed: true };
 }
 
 function rainForecastText(minutely) {
-  if (!minutely || !minutely.time) return null;
-  var now = new Date();
-  for (var i = 0; i < minutely.time.length; i++) {
-    var hasAmount = minutely.precipitation[i] > 0;
-    var hasProbability =
-      minutely.precipitation_probability &&
-      minutely.precipitation_probability[i] >= RAIN_PROBABILITY_THRESHOLD;
+  if (!minutely?.time) return null;
+  const now = new Date();
+  for (let i = 0; i < minutely.time.length; i++) {
+    const hasAmount = minutely.precipitation[i] > 0;
+    const hasProbability = minutely.precipitation_probability?.[i] >= RAIN_PROBABILITY_THRESHOLD;
     if (!hasAmount && !hasProbability) continue;
-    var slot = parseISOMinute(minutely.time[i]);
+    const slot = parseISOMinute(minutely.time[i]);
     if (!slot) continue;
-    var mins = Math.round((slot - now) / 60000);
-    var text;
+    const mins = Math.round((slot - now) / 60000);
+    let text;
     if (mins <= 10) text = "Rain expected soon";
-    else if (mins < 60) text = "Rain in " + mins + " min";
-    else text = "Rain in ~" + Math.round(mins / 60) + "h"; // minute-level precision this
-    // far out would be false
-    // accuracy the forecast doesn't have
-    return { text: text, urgent: true };
+    else if (mins < 60) text = `Rain in ${mins} min`;
+    else text = `Rain in ~${Math.round(mins / 60)}h`; // minute-level precision this far
+    // out would be false accuracy the forecast doesn't have
+    return { text, urgent: true };
   }
-  var windowMins = minutely.time.length * 15;
-  var windowH = Math.round(windowMins / 60);
-  return { text: "No rain expected for " + windowH + "h", urgent: false };
+  const windowH = Math.round((minutely.time.length * 15) / 60);
+  return { text: `No rain expected for ${windowH}h`, urgent: false };
 }
 
 function renderWeather(current, daily, minutely) {
-  var info = weatherInfo(current.weather_code);
-  var icon = info[0],
-    label = info[1];
+  const [icon, label] = weatherInfo(current.weather_code);
   document.getElementById("weather-icon").innerHTML = icon;
 
-  var html = '<span class="weather-icon-big">' + icon + "</span>";
-  html +=
-    '<span class="temp">' + Math.round(current.temperature_2m) + "&deg;</span>";
-  html += '<span class="details">' + label;
-  if (daily) {
-    html +=
-      "<br>H: " +
-      Math.round(daily.temperature_2m_max[0]) +
-      "&deg;" +
-      " L: " +
-      Math.round(daily.temperature_2m_min[0]) +
-      "&deg;";
-  }
-  html += "</span>";
-  document.getElementById("weather").innerHTML = html;
+  const range = daily
+    ? `<br>H: ${Math.round(daily.temperature_2m_max[0])}&deg; L: ${Math.round(daily.temperature_2m_min[0])}&deg;`
+    : "";
+  document.getElementById("weather").innerHTML =
+    `<span class="weather-icon-big">${icon}</span>` +
+    `<span class="temp">${Math.round(current.temperature_2m)}&deg;</span>` +
+    `<span class="details">${label}${range}</span>`;
 
-  var rain = rainForecastText(minutely);
-  var rainEl = document.getElementById("rain-alert");
+  const rain = rainForecastText(minutely);
+  const rainEl = document.getElementById("rain-alert");
   if (!rain) {
     rainEl.innerHTML = "";
   } else {
-    rainEl.className = rain.urgent
-      ? "alert-pill rain-urgent"
-      : "alert-pill rain-calm";
-    rainEl.innerHTML =
-      (rain.urgent ? "&#127783;&#65039; " : "&#9989; ") + rain.text;
+    rainEl.className = rain.urgent ? "alert-pill rain-urgent" : "alert-pill rain-calm";
+    rainEl.innerHTML = `${rain.urgent ? "&#127783;&#65039; " : "&#9989; "}${rain.text}`;
   }
 
-  var coat = coatAlertText(daily);
-  var coatEl = document.getElementById("coat-alert");
+  const coat = coatAlertText(daily);
+  const coatEl = document.getElementById("coat-alert");
   if (!coat) {
     coatEl.innerHTML = "";
   } else {
     coatEl.className = coat.needed ? "alert-pill coat-needed" : "alert-pill coat-ok";
-    coatEl.innerHTML = coat.icon + " " + coat.text;
+    coatEl.innerHTML = `${coat.icon} ${coat.text}`;
   }
 }
 
-function loadWeather() {
-  fetch("weather.json", { cache: "no-store" })
-    .then(function (res) {
-      if (!res.ok) throw new Error("HTTP " + res.status);
-      return res.json();
-    })
-    .then(function (data) {
-      if (data.error) throw new Error(data.reason || "unknown error");
-      renderWeather(data.current, data.daily || null, data.minutely_15 || null);
-    })
-    .catch(function (err) {
-      document.getElementById("weather").innerHTML =
-        '<p class="empty">Weather unavailable (' + err.message + ")</p>";
-      document.getElementById("rain-alert").innerHTML = "";
-      document.getElementById("coat-alert").innerHTML = "";
-    });
+async function loadWeather() {
+  try {
+    const res = await fetch("weather.json", { cache: "no-store" });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    if (data.error) throw new Error(data.reason ?? "unknown error");
+    renderWeather(data.current, data.daily ?? null, data.minutely_15 ?? null);
+  } catch (err) {
+    document.getElementById("weather").innerHTML = `<p class="empty">Weather unavailable (${err.message})</p>`;
+    document.getElementById("rain-alert").innerHTML = "";
+    document.getElementById("coat-alert").innerHTML = "";
+  }
 }
 
 loadWeather();
@@ -570,18 +457,15 @@ setInterval(loadWeather, 1000 * 60 * 15);
 // fetched-server-side-then-same-origin pattern as calendar/weather. Polled on the same
 // 15-minute cadence as weather purely for consistency with the rest of this file -- the
 // content itself only actually changes once a day, upstream.
-function loadFact() {
-  fetch("fact.json", { cache: "no-store" })
-    .then(function (res) {
-      if (!res.ok) throw new Error("HTTP " + res.status);
-      return res.json();
-    })
-    .then(function (data) {
-      document.getElementById("fact-text").textContent = data.text || "";
-    })
-    .catch(function () {
-      document.getElementById("fact-text").textContent = "";
-    });
+async function loadFact() {
+  try {
+    const res = await fetch("fact.json", { cache: "no-store" });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    document.getElementById("fact-text").textContent = data.text ?? "";
+  } catch {
+    document.getElementById("fact-text").textContent = "";
+  }
 }
 
 loadFact();
@@ -595,7 +479,7 @@ setInterval(loadFact, 1000 * 60 * 15);
 // Below this many seconds of traffic delay, the "delay" pill reads as "No delay" rather
 // than flagging a real slowdown -- there's always some noise in a live traffic estimate,
 // and a 1-2 minute wobble isn't worth a visual alert.
-var ROUTE_DELAY_THRESHOLD_SECONDS = 300;
+const ROUTE_DELAY_THRESHOLD_SECONDS = 300;
 
 // TomTom's own simpleCategory values -- JAM/ROAD_WORK/ROAD_CLOSURE are self-explanatory,
 // OTHER is an explicit catch-all (accident, broken-down vehicle, weather, anything not in
@@ -603,8 +487,8 @@ var ROUTE_DELAY_THRESHOLD_SECONDS = 300;
 // reference an external ISO 13585/TPEG2-TEC table TomTom's own docs don't reproduce, so
 // "Delay" here is deliberately generic rather than guessing a specific cause. Order here
 // is display order (most to least severe), not API order.
-var ROUTE_INCIDENT_CATEGORY_ORDER = ["ROAD_CLOSURE", "JAM", "ROAD_WORK", "OTHER"];
-var ROUTE_INCIDENT_LABELS = {
+const ROUTE_INCIDENT_CATEGORY_ORDER = ["ROAD_CLOSURE", "JAM", "ROAD_WORK", "OTHER"];
+const ROUTE_INCIDENT_LABELS = {
   ROAD_CLOSURE: "Closure",
   JAM: "Jam",
   ROAD_WORK: "Roadworks",
@@ -615,71 +499,53 @@ var ROUTE_INCIDENT_LABELS = {
 // itself is being worked on or blocked, independent of how much that's slowing traffic
 // right now. JAM/OTHER are purely about current throughput, so a few seconds of "delay"
 // there (TomTom reports these down to single-digit seconds) is just noise, not a real jam.
-var ROUTE_INCIDENT_ALWAYS_SHOW = { ROAD_WORK: true, ROAD_CLOSURE: true };
-var ROUTE_INCIDENT_MIN_DELAY_SECONDS = 60;
+const ROUTE_INCIDENT_ALWAYS_SHOW = { ROAD_WORK: true, ROAD_CLOSURE: true };
+const ROUTE_INCIDENT_MIN_DELAY_SECONDS = 60;
 
 // One entry per category present (not per incident -- two JAM sections still read as one
 // "Jam"), in severity order, each only included if it clears the relevance bar above.
 function relevantIncidentCategories(trafficSections) {
-  var present = {};
-  trafficSections.forEach(function (s) {
-    var worthShowing =
-      ROUTE_INCIDENT_ALWAYS_SHOW[s.simpleCategory] ||
-      (s.delayInSeconds || 0) >= ROUTE_INCIDENT_MIN_DELAY_SECONDS;
-    if (worthShowing) present[s.simpleCategory] = true;
-  });
-  return ROUTE_INCIDENT_CATEGORY_ORDER.filter(function (c) {
-    return present[c];
-  }).map(function (c) {
-    return ROUTE_INCIDENT_LABELS[c];
-  });
+  const present = new Set();
+  for (const s of trafficSections) {
+    const worthShowing =
+      ROUTE_INCIDENT_ALWAYS_SHOW[s.simpleCategory] || (s.delayInSeconds ?? 0) >= ROUTE_INCIDENT_MIN_DELAY_SECONDS;
+    if (worthShowing) present.add(s.simpleCategory);
+  }
+  return ROUTE_INCIDENT_CATEGORY_ORDER.filter((c) => present.has(c)).map((c) => ROUTE_INCIDENT_LABELS[c]);
 }
 
 function renderRoute(data) {
-  document.getElementById("route-label").textContent = data.label || "";
+  document.getElementById("route-label").textContent = data.label ?? "";
 
-  var statusEl = document.getElementById("route-status-alert");
-  var summary =
-    data.route && data.route.routes && data.route.routes[0]
-      ? data.route.routes[0].summary
-      : null;
+  const statusEl = document.getElementById("route-status-alert");
+  const summary = data.route?.routes?.[0]?.summary;
 
   if (!summary) {
-    document.getElementById("route").innerHTML =
-      '<p class="empty">Route unavailable</p>';
+    document.getElementById("route").innerHTML = '<p class="empty">Route unavailable</p>';
     statusEl.innerHTML = "";
     return;
   }
 
-  var minutes = Math.round(summary.travelTimeInSeconds / 60);
+  const minutes = Math.round(summary.travelTimeInSeconds / 60);
   // historicTrafficTravelTimeInSeconds, not noTrafficTravelTimeInSeconds -- the latter is
   // TomTom's zero-traffic best case (an empty road), not what "usually" means. The
   // historic figure is based on actual traffic patterns for this route/time, which is
   // what a "usually" comparison should be against.
-  var usualMinutes = Math.round(summary.historicTrafficTravelTimeInSeconds / 60);
+  const usualMinutes = Math.round(summary.historicTrafficTravelTimeInSeconds / 60);
   document.getElementById("route").innerHTML =
-    '<span class="route-minutes">' +
-    minutes +
-    '</span><span class="route-unit">min</span>' +
-    '<span class="route-detail">Usually ' +
-    usualMinutes +
-    " min</span>";
+    `<span class="route-minutes">${minutes}</span><span class="route-unit">min</span>` +
+    `<span class="route-detail">Usually ${usualMinutes} min</span>`;
 
   // "sections" is only present on the route when ROUTE_INCLUDE_INCIDENTS=true triggered
   // server/fetch-route.sh's &sectionType=traffic -- without that request TomTom never
   // includes the key at all. Each entry is already scoped to this specific route by
   // TomTom itself (not a bounding-box guess) -- see fetch-route.sh for why that
   // distinction mattered.
-  var sections = data.route.routes[0].sections;
-  var trafficSections = sections
-    ? sections.filter(function (s) {
-        return s.sectionType === "TRAFFIC";
-      })
-    : [];
-  var categories = relevantIncidentCategories(trafficSections);
+  const trafficSections = (data.route.routes[0].sections ?? []).filter((s) => s.sectionType === "TRAFFIC");
+  const categories = relevantIncidentCategories(trafficSections);
 
-  var delaySeconds = summary.trafficDelayInSeconds || 0;
-  var isSignificant = delaySeconds >= ROUTE_DELAY_THRESHOLD_SECONDS;
+  const delaySeconds = summary.trafficDelayInSeconds ?? 0;
+  const isSignificant = delaySeconds >= ROUTE_DELAY_THRESHOLD_SECONDS;
 
   if (!isSignificant && categories.length === 0) {
     statusEl.className = "alert-pill no-delay";
@@ -688,30 +554,24 @@ function renderRoute(data) {
     // Leads with the overall route-level delay only once it's actually significant --
     // otherwise this is just "here's what's on the route" with no number attached, since
     // the aggregate delay isn't the point of the message in that case.
-    var text = isSignificant ? "+" + Math.round(delaySeconds / 60) + " min traffic" : "";
+    let text = isSignificant ? `+${Math.round(delaySeconds / 60)} min traffic` : "";
     if (categories.length) {
-      text += text ? " (" + categories.join(", ") + ")" : categories.join(", ");
+      text += text ? ` (${categories.join(", ")})` : categories.join(", ");
     }
     statusEl.className = "alert-pill delayed";
-    statusEl.innerHTML = "&#9888; " + text;
+    statusEl.innerHTML = `&#9888; ${text}`;
   }
 }
 
-function loadRoute() {
-  fetch("route.json", { cache: "no-store" })
-    .then(function (res) {
-      if (!res.ok) throw new Error("HTTP " + res.status);
-      return res.json();
-    })
-    .then(function (data) {
-      renderRoute(data);
-    })
-    .catch(function (err) {
-      document.getElementById("route").innerHTML =
-        '<p class="empty">Route unavailable (' + err.message + ")</p>";
-      document.getElementById("route-delay-alert").innerHTML = "";
-      document.getElementById("route-incidents-alert").innerHTML = "";
-    });
+async function loadRoute() {
+  try {
+    const res = await fetch("route.json", { cache: "no-store" });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    renderRoute(await res.json());
+  } catch (err) {
+    document.getElementById("route").innerHTML = `<p class="empty">Route unavailable (${err.message})</p>`;
+    document.getElementById("route-status-alert").innerHTML = "";
+  }
 }
 
 loadRoute();
@@ -725,157 +585,122 @@ setInterval(loadRoute, 1000 * 60 * 15);
 // comment for why a plain static-file host can't do this one.
 
 function escapeHtml(s) {
-  return String(s)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
+  return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
 function renderShoppingList(items) {
-  var list = document.getElementById("shopping-items");
+  const list = document.getElementById("shopping-items");
   if (items.length === 0) {
     list.innerHTML = '<li class="empty">Nothing on the list</li>';
     return;
   }
   list.innerHTML = items
-    .map(function (item) {
-      return (
-        '<li><span class="shopping-item-text">' +
-        escapeHtml(item.summary) +
-        '</span><button class="shopping-remove-btn" data-uid="' +
-        escapeHtml(item.uid) +
-        '">&times;</button></li>'
-      );
-    })
+    .map(
+      (item) =>
+        `<li><span class="shopping-item-text">${escapeHtml(item.summary)}</span>` +
+        `<button class="shopping-remove-btn" data-uid="${escapeHtml(item.uid)}">&times;</button></li>`
+    )
     .join("");
 }
 
-function removeShoppingItem(uid) {
-  fetch("/api/shopping-list?uid=" + encodeURIComponent(uid), {
-    method: "DELETE",
-  })
-    .then(function (res) {
-      if (!res.ok) throw new Error("HTTP " + res.status);
-      return res.json();
-    })
-    .then(function (data) {
-      if (data.error) throw new Error(data.error);
-      loadShoppingList();
-    })
-    .catch(function (err) {
-      alert("Could not remove item: " + err.message);
-    });
+async function removeShoppingItem(uid) {
+  try {
+    const res = await fetch(`/api/shopping-list?uid=${encodeURIComponent(uid)}`, { method: "DELETE" });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    loadShoppingList();
+  } catch (err) {
+    alert(`Could not remove item: ${err.message}`);
+  }
 }
 
-function loadShoppingList() {
-  var list = document.getElementById("shopping-items");
-  fetch("/api/shopping-list", { cache: "no-store" })
-    .then(function (res) {
-      if (!res.ok) throw new Error("HTTP " + res.status);
-      return res.json();
-    })
-    .then(function (data) {
-      if (data.error) throw new Error(data.error);
-      renderShoppingList(data.items);
-    })
-    .catch(function (err) {
-      list.innerHTML =
-        '<li class="empty">List unavailable (' + err.message + ")</li>";
-    });
+async function loadShoppingList() {
+  const list = document.getElementById("shopping-items");
+  try {
+    const res = await fetch("/api/shopping-list", { cache: "no-store" });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    renderShoppingList(data.items);
+  } catch (err) {
+    list.innerHTML = `<li class="empty">List unavailable (${err.message})</li>`;
+  }
 }
 
-function addShoppingItem() {
-  var input = document.getElementById("shopping-input");
-  var value = input.value.trim();
+async function addShoppingItem() {
+  const input = document.getElementById("shopping-input");
+  const value = input.value.trim();
   if (!value) return;
   input.disabled = true;
-  fetch("/api/shopping-list", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ item: value }),
-  })
-    .then(function (res) {
-      if (!res.ok) throw new Error("HTTP " + res.status);
-      return res.json();
-    })
-    .then(function (data) {
-      if (data.error) throw new Error(data.error);
-      input.value = "";
-      loadShoppingList();
-    })
-    .catch(function (err) {
-      // Rare on a home LAN; a visible alert is simpler than a dedicated error-state UI for
-      // something that should basically never happen in practice.
-      alert("Could not add item: " + err.message);
-    })
-    .then(function () {
-      input.disabled = false;
-      input.focus();
+  try {
+    const res = await fetch("/api/shopping-list", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ item: value }),
     });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    input.value = "";
+    await loadShoppingList();
+  } catch (err) {
+    // Rare on a home LAN; a visible alert is simpler than a dedicated error-state UI for
+    // something that should basically never happen in practice.
+    alert(`Could not add item: ${err.message}`);
+  } finally {
+    input.disabled = false;
+    input.focus();
+  }
 }
 
-document
-  .getElementById("shopping-add-btn")
-  .addEventListener("click", addShoppingItem);
-document
-  .getElementById("shopping-input")
-  .addEventListener("keydown", function (e) {
-    if (e.keyCode === 13) addShoppingItem(); // keyCode, not e.key -- e.key needs Chrome 51+
-  });
-document
-  .getElementById("shopping-items")
-  .addEventListener("click", function (e) {
-    if (e.target.className === "shopping-remove-btn") {
-      removeShoppingItem(e.target.getAttribute("data-uid"));
-    }
-  });
+document.getElementById("shopping-add-btn").addEventListener("click", addShoppingItem);
+document.getElementById("shopping-input").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") addShoppingItem();
+});
+document.getElementById("shopping-items").addEventListener("click", (e) => {
+  if (e.target.className === "shopping-remove-btn") {
+    removeShoppingItem(e.target.getAttribute("data-uid"));
+  }
+});
 
 function daysAgoText(days) {
   if (days === 0) return "today";
   if (days === 1) return "yesterday";
-  return days + " days ago";
+  return `${days} days ago`;
 }
 
 // input_datetime-backed "last done X days ago, tap to reset" pills -- mirrors
 // server.js's TRACKERS dict (name -> GET /api/<name>, POST /api/<name>/<data-action>).
 function setupTracker(name, valueId, btnId) {
-  var value = document.getElementById(valueId);
-  var btn = document.getElementById(btnId);
+  const value = document.getElementById(valueId);
+  const btn = document.getElementById(btnId);
 
-  function load() {
-    fetch("/api/" + name, { cache: "no-store" })
-      .then(function (res) {
-        if (!res.ok) throw new Error("HTTP " + res.status);
-        return res.json();
-      })
-      .then(function (data) {
-        if (data.error) throw new Error(data.error);
-        value.textContent = daysAgoText(data.days_ago);
-      })
-      .catch(function () {
-        value.textContent = "?";
-      });
+  async function load() {
+    try {
+      const res = await fetch(`/api/${name}`, { cache: "no-store" });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      value.textContent = daysAgoText(data.days_ago);
+    } catch {
+      value.textContent = "?";
+    }
   }
 
-  btn.addEventListener("click", function () {
+  btn.addEventListener("click", async () => {
     btn.disabled = true;
-    fetch("/api/" + name + "/" + btn.getAttribute("data-action"), {
-      method: "POST",
-    })
-      .then(function (res) {
-        if (!res.ok) throw new Error("HTTP " + res.status);
-        return res.json();
-      })
-      .then(function (data) {
-        if (data.error) throw new Error(data.error);
-        load();
-      })
-      .catch(function (err) {
-        alert("Could not log " + name + ": " + err.message);
-      })
-      .then(function () {
-        btn.disabled = false;
-      });
+    try {
+      const res = await fetch(`/api/${name}/${btn.getAttribute("data-action")}`, { method: "POST" });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      await load();
+    } catch (err) {
+      alert(`Could not log ${name}: ${err.message}`);
+    } finally {
+      btn.disabled = false;
+    }
   });
 
   load();
@@ -889,47 +714,41 @@ function setupTracker(name, valueId, btnId) {
 // emoji render in fixed platform green/red, clashing with the muted glass theme) -- same
 // "plain Unicode glyph over color emoji" swap as the club icon elsewhere in this file.
 // These inherit .status-fed/.status-missed's text color instead of fighting it.
-var DOG_FED_ICONS = { pending: "&ndash;", fed: "&#10003;", missed: "&#10007;" };
+const DOG_FED_ICONS = { pending: "&ndash;", fed: "&#10003;", missed: "&#10007;" };
 
 function renderDogFedSlot(id, label, status) {
-  var slot = document.getElementById(id);
-  slot.className = "dog-fed-slot status-" + status;
-  slot.innerHTML = label + " " + (DOG_FED_ICONS[status] || "?");
+  const slot = document.getElementById(id);
+  slot.className = `dog-fed-slot status-${status}`;
+  slot.innerHTML = `${label} ${DOG_FED_ICONS[status] ?? "?"}`;
 }
 
 // Self-rescheduling rather than a fixed setInterval, so the poll rate can change: fast
 // while a feed is due right now (server says in_window), slow otherwise -- nothing can
 // change outside a window, so there's no reason to hit HA's history API every 20s all day.
-var DOG_FED_FAST_POLL_MS = 1000 * 20;
-var DOG_FED_SLOW_POLL_MS = 1000 * 60 * 15;
+const DOG_FED_FAST_POLL_MS = 1000 * 20;
+const DOG_FED_SLOW_POLL_MS = 1000 * 60 * 15;
 
 // Hides the pill until dashboard.env has HA_DOG_FED_ENTITY_ID configured, so this is a
 // no-op until then.
-function loadDogFed() {
-  var pill = document.getElementById("dog-fed-pill");
-  fetch("/api/dog-fed", { cache: "no-store" })
-    .then(function (res) {
-      if (!res.ok) throw new Error("HTTP " + res.status);
-      return res.json();
-    })
-    .then(function (data) {
-      if (!data.configured) {
-        pill.className = "status-pill";
-        setTimeout(loadDogFed, DOG_FED_SLOW_POLL_MS);
-        return;
-      }
-      pill.className = "status-pill dog-fed-pill-visible";
-      renderDogFedSlot("dog-fed-morning", "AM", data.morning);
-      renderDogFedSlot("dog-fed-afternoon", "PM", data.afternoon);
-      setTimeout(
-        loadDogFed,
-        data.in_window ? DOG_FED_FAST_POLL_MS : DOG_FED_SLOW_POLL_MS
-      );
-    })
-    .catch(function () {
+async function loadDogFed() {
+  const pill = document.getElementById("dog-fed-pill");
+  try {
+    const res = await fetch("/api/dog-fed", { cache: "no-store" });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    if (!data.configured) {
       pill.className = "status-pill";
       setTimeout(loadDogFed, DOG_FED_SLOW_POLL_MS);
-    });
+      return;
+    }
+    pill.className = "status-pill dog-fed-pill-visible";
+    renderDogFedSlot("dog-fed-morning", "AM", data.morning);
+    renderDogFedSlot("dog-fed-afternoon", "PM", data.afternoon);
+    setTimeout(loadDogFed, data.in_window ? DOG_FED_FAST_POLL_MS : DOG_FED_SLOW_POLL_MS);
+  } catch {
+    pill.className = "status-pill";
+    setTimeout(loadDogFed, DOG_FED_SLOW_POLL_MS);
+  }
 }
 
 setupTracker("litter", "litter-value", "litter-scoop-btn");
@@ -941,69 +760,59 @@ loadDogFed();
 // first (it otherwise keeps overriding manual brightness) then sets brightness; "Auto"
 // hands control back to Adaptive Lighting. The slider only posts to HA on release
 // ('change', not 'input') so dragging doesn't spam a service call per pixel moved.
-var kitchenSlider = document.getElementById("kitchen-brightness");
-var kitchenAutoBtn = document.getElementById("kitchen-auto-btn");
+const kitchenSlider = document.getElementById("kitchen-brightness");
+const kitchenAutoBtn = document.getElementById("kitchen-auto-btn");
 
-function loadKitchenLight() {
-  fetch("/api/kitchen-light", { cache: "no-store" })
-    .then(function (res) {
-      if (!res.ok) throw new Error("HTTP " + res.status);
-      return res.json();
-    })
-    .then(function (data) {
-      if (data.error) throw new Error(data.error);
-      kitchenSlider.value = data.brightness_pct;
-      kitchenAutoBtn.textContent = data.auto ? "Auto: ON" : "Auto: OFF";
-    })
-    .catch(function () {
-      kitchenAutoBtn.textContent = "Auto: ?";
-    });
+async function loadKitchenLight() {
+  try {
+    const res = await fetch("/api/kitchen-light", { cache: "no-store" });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    kitchenSlider.value = data.brightness_pct;
+    kitchenAutoBtn.textContent = data.auto ? "Auto: ON" : "Auto: OFF";
+  } catch {
+    kitchenAutoBtn.textContent = "Auto: ?";
+  }
 }
 
-kitchenSlider.addEventListener("change", function () {
-  fetch("/api/kitchen-light/brightness", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ brightness_pct: parseInt(kitchenSlider.value, 10) }),
-  })
-    .then(function (res) {
-      if (!res.ok) throw new Error("HTTP " + res.status);
-      return res.json();
-    })
-    .then(function (data) {
-      if (data.error) throw new Error(data.error);
-      // No re-fetch here -- the slider already shows exactly what we just told the light
-      // to do. Re-reading immediately races the group light's own state update (it
-      // aggregates ~24 individual Hue lights, confirmed to lag the command by up to ~1s),
-      // which was snapping the slider back to the stale pre-change brightness.
-      kitchenAutoBtn.textContent = "Auto: OFF";
-    })
-    .catch(function (err) {
-      alert("Could not set brightness: " + err.message);
+kitchenSlider.addEventListener("change", async () => {
+  try {
+    const res = await fetch("/api/kitchen-light/brightness", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ brightness_pct: parseInt(kitchenSlider.value, 10) }),
     });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    // No re-fetch here -- the slider already shows exactly what we just told the light
+    // to do. Re-reading immediately races the group light's own state update (it
+    // aggregates ~24 individual Hue lights, confirmed to lag the command by up to ~1s),
+    // which was snapping the slider back to the stale pre-change brightness.
+    kitchenAutoBtn.textContent = "Auto: OFF";
+  } catch (err) {
+    alert(`Could not set brightness: ${err.message}`);
+  }
 });
 
-kitchenAutoBtn.addEventListener("click", function () {
+kitchenAutoBtn.addEventListener("click", async () => {
   kitchenAutoBtn.disabled = true;
-  fetch("/api/kitchen-light/auto", { method: "POST" })
-    .then(function (res) {
-      if (!res.ok) throw new Error("HTTP " + res.status);
-      return res.json();
-    })
-    .then(function (data) {
-      if (data.error) throw new Error(data.error);
-      kitchenAutoBtn.textContent = "Auto: ON";
-      // Adaptive Lighting doesn't apply its own brightness the instant the switch turns
-      // back on -- confirmed empirically, it takes a couple of seconds to actually push a
-      // value to the light. Fetching immediately just re-reads the old manual brightness.
-      setTimeout(loadKitchenLight, 2500);
-    })
-    .catch(function (err) {
-      alert("Could not re-enable auto: " + err.message);
-    })
-    .then(function () {
-      kitchenAutoBtn.disabled = false;
-    });
+  try {
+    const res = await fetch("/api/kitchen-light/auto", { method: "POST" });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    kitchenAutoBtn.textContent = "Auto: ON";
+    // Adaptive Lighting doesn't apply its own brightness the instant the switch turns
+    // back on -- confirmed empirically, it takes a couple of seconds to actually push a
+    // value to the light. Fetching immediately just re-reads the old manual brightness.
+    setTimeout(loadKitchenLight, 2500);
+  } catch (err) {
+    alert(`Could not re-enable auto: ${err.message}`);
+  } finally {
+    kitchenAutoBtn.disabled = false;
+  }
 });
 
 loadKitchenLight();

@@ -6,7 +6,7 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
-./check-es5.sh || { echo "Aborting -- fix the syntax error before pushing to the frame." >&2; exit 1; }
+./check-js-syntax.sh || { echo "Aborting -- fix the syntax error before pushing to the frame." >&2; exit 1; }
 
 [ -d server/node_modules ] || (cd server && npm install)
 

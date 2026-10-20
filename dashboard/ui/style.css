@@ -4,21 +4,45 @@
   box-sizing: border-box;
 }
 
-/* Modern look built entirely from gradients, shadows and radius -- no backdrop-filter
-   (frosted glass blur), which needs Chrome 76+ and this WebView is ~44. Depth comes from
-   colored glow shadows and layered background gradients instead of actual blur. */
+:root {
+  --color-text: #a8adc2;
+  --color-muted: #8a90a8;
+  --color-dim: #7b8294;
+  --color-faint: #565c70;
+
+  --surface-bg: rgba(255, 255, 255, 0.06);
+  --surface-border: rgba(255, 255, 255, 0.12);
+  --card-gradient: linear-gradient(165deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.02));
+  --action-gradient: linear-gradient(135deg, rgba(170, 110, 255, 0.35), rgba(170, 110, 255, 0.15));
+  --action-border: rgba(170, 110, 255, 0.5);
+  --action-text: #e8d9ff;
+
+  --radius-pill: 999px;
+  --radius-card: 28px;
+  --radius-input: 12px;
+
+  --shadow-drop: 0 20px 50px rgba(0, 0, 0, 0.45);
+
+  --gap-card: 32px;
+  --gap-section: 24px;
+
+  --transition-fast: 150ms ease;
+}
+
+/* Frosted-glass depth via backdrop-filter on the card surfaces below (Chrome 76+,
+   confirmed supported on this frame's upgraded WebView -- see docs/pf1007l-webview-106.md)
+   -- layered with the existing translucent gradients rather than replacing them, so the
+   glass cards genuinely blur the body's radial-gradient "aura" blobs behind them instead
+   of just faking depth with color alone. */
 
 /* Inter, self-hosted -- not linked straight to Google Fonts' CDN. Same reasoning as the
    calendar/weather fetch-then-serve-locally pattern elsewhere in this project: this
-   WebView is missing some root CAs (confirmed earlier against Let's Encrypt; Google's own
-   CAs are a real possibility too per the upstream project's notes on other units), and a
-   live Google Fonts request could just as easily fail with no visible error. Downloaded
-   where TLS trust isn't a question (this Mac), served same-origin instead.
-   Static per-weight files only, not Google's variable-font response -- the default
-   "modern browser" response serves ONE file covering the whole weight range via
-   font-variation-settings, which needs Chrome 62+ and would silently render every weight
-   declared below as the same default instance on this WebView. Forced static files by
-   requesting with an old Chrome User-Agent string instead. */
+   WebView was missing some root CAs (confirmed against Let's Encrypt), and a live Google
+   Fonts request could just as easily fail with no visible error. Downloaded where TLS
+   trust isn't a question (this Mac), served same-origin instead. Static per-weight files,
+   not Google's variable-font response, requested with an old Chrome User-Agent string --
+   kept as static files even post-upgrade since there's no reason to re-fetch working
+   assets. */
 @font-face {
   font-family: "Inter";
   font-weight: 200;
@@ -49,8 +73,8 @@ body {
   height: 800px;
   background: #0a0b10;
   /* Several soft, large radial "aura" blobs instead of one flat linear gradient --
-     layering plain radial-gradient (supported long before this WebView's era) gives a
-     sense of depth/light sources without needing blur. */
+     gives a sense of depth/light sources, and is also what the blurred glass cards
+     above now genuinely pick up through backdrop-filter. */
   background-image:
     radial-gradient(
       ellipse 900px 600px at 10% -10%,
@@ -101,10 +125,11 @@ header {
   flex: 1;
   min-width: 0;
   text-align: center;
-  margin: 0 32px;
+  margin: 0 var(--gap-card);
   padding: 10px 24px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--surface-border);
   border-radius: 16px;
+  backdrop-filter: blur(12px);
 }
 
 /* Same tiny-uppercase-caption treatment as .tomorrow-label -- this project's established
@@ -114,12 +139,12 @@ header {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 1.5px;
-  color: #8a90a8;
+  color: var(--color-muted);
   margin-bottom: 4px;
 }
 
 #fact-text {
-  color: #8a90a8;
+  color: var(--color-muted);
   font-size: 17px;
   font-weight: 500;
 }
@@ -130,11 +155,13 @@ header {
 
 #bin-pill.bin-pill-visible {
   display: flex;
+  gap: 8px;
 }
 
 .header-right {
   display: flex;
   align-items: center;
+  gap: 14px;
 }
 
 #dog-fed-pill {
@@ -143,25 +170,21 @@ header {
 
 #dog-fed-pill.dog-fed-pill-visible {
   display: flex;
+  gap: 10px;
 }
 
 .paw-icon {
   width: 20px;
   height: 20px;
-  margin-right: 8px;
   flex-shrink: 0;
 }
 
 .dog-fed-slot {
-  margin-right: 10px;
-}
-
-.dog-fed-slot:last-child {
-  margin-right: 0;
+  transition: color var(--transition-fast);
 }
 
 .dog-fed-slot.status-pending {
-  color: #7b8294;
+  color: var(--color-dim);
 }
 
 .dog-fed-slot.status-fed {
@@ -175,53 +198,42 @@ header {
 .bin-icon {
   width: 24px;
   height: 24px;
-  margin-right: 8px;
   flex-shrink: 0;
-}
-
-.bin-icon:last-child {
-  margin-right: 0;
 }
 
 .controls-row {
   flex-shrink: 0;
-  margin-bottom: 24px;
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 14px;
 }
 
 .status-pill {
   font-size: 17px;
   font-weight: 600;
-  color: #a8adc2;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 999px;
+  color: var(--color-text);
+  background: var(--surface-bg);
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-pill);
   padding: 10px 20px;
-  margin-right: 14px;
   display: flex;
   align-items: center;
-}
-
-.status-pill:last-child {
-  margin-right: 0;
 }
 
 .lighting-label {
   margin-right: 16px;
 }
 
-/* Styled with vendor-prefixed pseudo-elements, not a single cross-browser rule -- range
-   input thumb/track styling has never had one, and this old WebView only needs the
-   -webkit- form anyway. */
+/* Styled with vendor-prefixed pseudo-elements, not a single cross-browser rule --
+   range input thumb/track styling has never had one. */
 #kitchen-brightness {
   width: 220px;
   margin-right: 14px;
   -webkit-appearance: none;
   height: 6px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.12);
+  border-radius: var(--radius-pill);
+  background: var(--surface-border);
 }
 
 #kitchen-brightness::-webkit-slider-thumb {
@@ -229,12 +241,13 @@ header {
   width: 24px;
   height: 24px;
   border-radius: 50%;
-  background: linear-gradient(
-    135deg,
-    rgba(255, 200, 110, 1),
-    rgba(255, 170, 80, 0.9)
-  );
+  background: linear-gradient(135deg, rgba(255, 200, 110, 1), rgba(255, 170, 80, 0.9));
   border: 2px solid rgba(255, 255, 255, 0.5);
+  transition: transform var(--transition-fast);
+}
+
+#kitchen-brightness::-webkit-slider-thumb:active {
+  transform: scale(1.1);
 }
 
 #dog-fed-value,
@@ -248,16 +261,17 @@ header {
   font-family: inherit;
   font-size: 14px;
   font-weight: 600;
-  color: #e8d9ff;
-  background: linear-gradient(
-    135deg,
-    rgba(170, 110, 255, 0.35),
-    rgba(170, 110, 255, 0.15)
-  );
-  border: 1px solid rgba(170, 110, 255, 0.5);
-  border-radius: 999px;
+  color: var(--action-text);
+  background: var(--action-gradient);
+  border: 1px solid var(--action-border);
+  border-radius: var(--radius-pill);
   padding: 7px 16px;
   margin-left: 14px;
+  transition: filter var(--transition-fast);
+}
+
+.pill-action-btn:active {
+  filter: brightness(0.85);
 }
 
 #clock {
@@ -270,76 +284,58 @@ header {
 #date {
   font-size: 22px;
   font-weight: 500;
-  color: #8a90a8;
-  margin-left: 24px;
+  color: var(--color-muted);
+  margin-left: var(--gap-section);
 }
 
-/* Flexbox "gap" isn't supported on this frame's old WebView (needs Chrome 84+) --
-   spacing between widgets is done with margin on the widget itself instead. */
 .widgets {
   flex: 1;
   min-height: 0;
   padding: 0 48px;
   display: flex;
   flex-direction: column;
+  gap: var(--gap-section);
 }
 
 .row1 {
   display: flex;
+  gap: var(--gap-card);
 }
 
 /* No border -- depth from a soft colored glow (each widget variant below) plus a plain
-   dark drop shadow for lift, rather than a flat accent-colored top edge. CSS custom
-   properties (--variables) need Chrome 49+, past this WebView's ~44 -- an unsupported
-   property is silently dropped, not a visible error, so the glow was defined directly per
-   class instead of via var() the first time this was tried, to actually render. */
+   dark drop shadow for lift, plus backdrop-filter blur for genuine glass depth now that
+   this WebView supports it. */
 .widget {
-  /* 373px, not 576px: row1 went from 2 widgets to 3 (weather/route/shopping) when the
-     route widget landed in the middle. Content box is 1184px (1280 - 48px padding each
-     side), minus two 32px gaps: (1184 - 64) / 3 = 373.33, floored -- 1px of slack on the
-     row's right edge beats fighting for the exact fraction (see the flex:1/calc() dead
-     ends noted in the 2-widget version of this comment, same category of old-WebView
-     flexbox unreliability, not worth re-litigating per column count). A plain static px
-     value, computed once by hand instead of dynamically in CSS, sidesteps it entirely. */
+  /* 373px: row1 has 3 widgets (weather/route/shopping). Content box is 1184px
+     (1280 - 48px padding each side), minus two 32px gaps: (1184 - 64) / 3 = 373.33,
+     floored -- 1px of slack on the row's right edge beats fighting for the exact
+     fraction. A plain static px value, computed once by hand instead of dynamically in
+     CSS, sidesteps flex-basis rounding/percentage quirks entirely. This is a physical
+     fixed-screen computation (1280x800 never changes), not a WebView-version workaround,
+     so it stays regardless of engine capability. */
   width: 373px;
-  margin: 0 32px 24px 0;
-  background: linear-gradient(
-    165deg,
-    rgba(255, 255, 255, 0.07),
-    rgba(255, 255, 255, 0.02)
-  );
-  border-radius: 28px;
+  background: var(--card-gradient);
+  backdrop-filter: blur(16px);
+  border-radius: var(--radius-card);
   padding: 22px 32px;
-  box-shadow:
-    0 20px 50px rgba(0, 0, 0, 0.45),
-    0 0 60px -20px rgba(90, 140, 255, 0.5);
+  box-shadow: var(--shadow-drop), 0 0 60px -20px rgba(90, 140, 255, 0.5);
 }
 
 .widget-shopping {
-  /* Last in its row (weather, route, shopping) -- without zeroing this the row's total
-     width goes 32px over the content box and the whole row wraps instead of fitting three
-     across. */
-  margin-right: 0;
-  box-shadow:
-    0 20px 50px rgba(0, 0, 0, 0.45),
-    0 0 60px -20px rgba(170, 110, 255, 0.5);
+  box-shadow: var(--shadow-drop), 0 0 60px -20px rgba(170, 110, 255, 0.5);
 }
 
 .widget-weather {
-  box-shadow:
-    0 20px 50px rgba(0, 0, 0, 0.45),
-    0 0 60px -20px rgba(255, 170, 80, 0.55);
+  box-shadow: var(--shadow-drop), 0 0 60px -20px rgba(255, 170, 80, 0.55);
 }
 
 .widget-route {
-  box-shadow:
-    0 20px 50px rgba(0, 0, 0, 0.45),
-    0 0 60px -20px rgba(80, 180, 220, 0.5);
+  box-shadow: var(--shadow-drop), 0 0 60px -20px rgba(80, 180, 220, 0.5);
 }
 
 .widget h2 {
   font-size: 15px;
-  color: #a8adc2;
+  color: var(--color-text);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 2px;
@@ -355,6 +351,7 @@ header {
 
 .shopping-add-row {
   display: flex;
+  gap: 10px;
   margin-bottom: 14px;
 }
 
@@ -367,11 +364,16 @@ header {
   font-family: inherit;
   font-size: 15px;
   color: #eee;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 12px;
+  background: var(--surface-bg);
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-input);
   padding: 8px 12px;
-  margin-right: 10px;
+  transition: border-color var(--transition-fast);
+}
+
+#shopping-input:focus {
+  outline: none;
+  border-color: var(--action-border);
 }
 
 #shopping-input::placeholder {
@@ -382,15 +384,16 @@ header {
   font-family: inherit;
   font-size: 15px;
   font-weight: 600;
-  color: #e8d9ff;
-  background: linear-gradient(
-    135deg,
-    rgba(170, 110, 255, 0.35),
-    rgba(170, 110, 255, 0.15)
-  );
-  border: 1px solid rgba(170, 110, 255, 0.5);
-  border-radius: 12px;
+  color: var(--action-text);
+  background: var(--action-gradient);
+  border: 1px solid var(--action-border);
+  border-radius: var(--radius-input);
   padding: 8px 16px;
+  transition: filter var(--transition-fast);
+}
+
+#shopping-add-btn:active {
+  filter: brightness(0.85);
 }
 
 #shopping-items {
@@ -418,18 +421,25 @@ header {
   font-family: inherit;
   font-size: 17px;
   line-height: 1;
-  color: #a8adc2;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: var(--color-text);
+  background: var(--surface-bg);
+  border: 1px solid var(--surface-border);
   border-radius: 50%;
   width: 30px;
   height: 30px;
   flex-shrink: 0;
-  margin-left: 16px;
+  transition:
+    background var(--transition-fast),
+    color var(--transition-fast);
+}
+
+.shopping-remove-btn:active {
+  background: rgba(255, 100, 100, 0.25);
+  color: #ffb3b3;
 }
 
 .empty {
-  color: #565c70;
+  color: var(--color-faint);
   font-style: italic;
   font-size: 21px;
 }
@@ -454,11 +464,7 @@ header {
   height: 56px;
   flex-shrink: 0;
   border-radius: 50%;
-  background: radial-gradient(
-    circle,
-    rgba(255, 180, 90, 0.22),
-    rgba(255, 180, 90, 0.04) 70%
-  );
+  background: radial-gradient(circle, rgba(255, 180, 90, 0.22), rgba(255, 180, 90, 0.04) 70%);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -478,7 +484,7 @@ header {
   margin-top: 10px;
   font-size: 16px;
   font-weight: 500;
-  color: #a8adc2;
+  color: var(--color-text);
   line-height: 1.5;
 }
 
@@ -488,50 +494,41 @@ header {
   margin-top: 16px;
   display: flex;
   flex-direction: column;
+  gap: 8px;
 }
 
 /* Shared by rain-alert/coat-alert/route-status-alert -- same pill shape and sizing, only
    color/text differ per state (set via the second class each gets in app.js, e.g.
    "alert-pill rain-urgent"). */
 .alert-pill {
-  margin-bottom: 8px;
   padding: 10px 16px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   font-size: 15px;
   font-weight: 600;
-}
-
-.alert-pill:last-child {
-  margin-bottom: 0;
+  transition:
+    background var(--transition-fast),
+    color var(--transition-fast);
 }
 
 #rain-alert.rain-urgent {
-  background: linear-gradient(
-    135deg,
-    rgba(90, 160, 255, 0.28),
-    rgba(90, 160, 255, 0.1)
-  );
+  background: linear-gradient(135deg, rgba(90, 160, 255, 0.28), rgba(90, 160, 255, 0.1));
   color: #a9d4ff;
 }
 
 #rain-alert.rain-calm {
   background: rgba(255, 255, 255, 0.05);
-  color: #7b8294;
+  color: var(--color-dim);
   font-weight: 500;
 }
 
 #coat-alert.coat-needed {
-  background: linear-gradient(
-    135deg,
-    rgba(255, 170, 80, 0.28),
-    rgba(255, 170, 80, 0.1)
-  );
+  background: linear-gradient(135deg, rgba(255, 170, 80, 0.28), rgba(255, 170, 80, 0.1));
   color: #ffd1a3;
 }
 
 #coat-alert.coat-ok {
   background: rgba(255, 255, 255, 0.05);
-  color: #7b8294;
+  color: var(--color-dim);
   font-weight: 500;
 }
 
@@ -552,7 +549,7 @@ header {
 #route .route-unit {
   font-size: 16px;
   font-weight: 500;
-  color: #a8adc2;
+  color: var(--color-text);
   margin-left: 8px;
 }
 
@@ -561,41 +558,37 @@ header {
   margin-top: 10px;
   font-size: 16px;
   font-weight: 500;
-  color: #a8adc2;
+  color: var(--color-text);
   line-height: 1.5;
 }
 
 #route-status-alert.delayed {
-  background: linear-gradient(
-    135deg,
-    rgba(255, 170, 80, 0.28),
-    rgba(255, 170, 80, 0.1)
-  );
+  background: linear-gradient(135deg, rgba(255, 170, 80, 0.28), rgba(255, 170, 80, 0.1));
   color: #ffd1a3;
 }
 
 #route-status-alert.no-delay {
   background: rgba(255, 255, 255, 0.05);
-  color: #7b8294;
+  color: var(--color-dim);
   font-weight: 500;
 }
 
 /* Each person gets their own widget instead of a bare name pill floating over shared
    whitespace, or all being boxed inside one shared "Today" container -- same "card with
-   glow" treatment as .widget-weather/.widget-shopping above, just per person. One row, no
-   wrap: flex:1 on each card grows it to fill whatever width the row has, same "equal
-   flexible share" as .row1's widgets. flex:1 + min-height:0 on #today-people (its parent
-   .widgets is a column flex container) grows the row to fill whatever vertical space is
-   left under row1. align-items:stretch makes every card match the tallest one, so the
-   cards' backgrounds fill the full row instead of leaving dead space below -- content
-   inside stays top-aligned (not re-centered into that extra height) so every name pill
-   sits on the same row across cards. (No flex "gap" on this WebView -- the gap is
-   margin-right on each card, same workaround as elsewhere in this file.) */
+   glow + blur" treatment as .widget-weather/.widget-shopping above, just per person. One
+   row, no wrap: flex:1 on each card grows it to fill whatever width the row has, same
+   "equal flexible share" as .row1's widgets. flex:1 + min-height:0 on #today-people (its
+   parent .widgets is a column flex container) grows the row to fill whatever vertical
+   space is left under row1. align-items:stretch makes every card match the tallest one,
+   so the cards' backgrounds fill the full row instead of leaving dead space below --
+   content inside stays top-aligned (not re-centered into that extra height) so every
+   name pill sits on the same row across cards. */
 #today-people {
   flex: 1;
   min-height: 0;
   display: flex;
   align-items: stretch;
+  gap: var(--gap-section);
 }
 
 .person-column {
@@ -603,24 +596,14 @@ header {
   min-width: 0; /* same flex-item shrink gotcha as #shopping-input above -- without it a
                    long item line can keep the card from shrinking to its equal share and
                    it overflows past the row instead. */
-  margin-right: 24px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  background: linear-gradient(
-    165deg,
-    rgba(255, 255, 255, 0.07),
-    rgba(255, 255, 255, 0.02)
-  );
-  border-radius: 28px;
+  background: var(--card-gradient);
+  backdrop-filter: blur(16px);
+  border-radius: var(--radius-card);
   padding: 20px;
-  box-shadow:
-    0 20px 50px rgba(0, 0, 0, 0.45),
-    0 0 60px -20px rgba(80, 220, 170, 0.5);
-}
-
-.person-column:last-child {
-  margin-right: 0;
+  box-shadow: var(--shadow-drop), 0 0 60px -20px rgba(80, 220, 170, 0.5);
 }
 
 .person-column .person-name {
@@ -632,7 +615,7 @@ header {
   text-transform: uppercase;
   letter-spacing: 1.5px;
   padding: 9px 26px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   margin-bottom: 14px;
 }
 
@@ -651,7 +634,7 @@ header {
 }
 
 .person-column li.no-items {
-  color: #565c70;
+  color: var(--color-faint);
   font-style: italic;
   font-weight: 500;
 }
@@ -663,7 +646,7 @@ header {
   width: 100%;
   margin-top: 12px;
   padding-top: 12px;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  border-top: 1px solid var(--surface-border);
   opacity: 0.4;
 }
 
@@ -672,7 +655,7 @@ header {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 1.5px;
-  color: #8a90a8;
+  color: var(--color-muted);
   text-align: center;
   margin-bottom: 4px;
 }
