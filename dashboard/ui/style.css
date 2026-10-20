@@ -588,6 +588,12 @@ header {
   text-align: center;
 }
 
+.person-column li.no-items {
+  color: #565c70;
+  font-style: italic;
+  font-weight: 500;
+}
+
 /* Tomorrow's items sit below today's in the same card, visually de-emphasized (smaller,
    dimmer, separated by a thin rule) rather than given equal weight -- they're
    look-ahead, not today's actual to-do list. */

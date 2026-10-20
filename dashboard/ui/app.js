@@ -261,8 +261,10 @@ function isTomorrow(date) {
 function groupByPerson(items) {
   var byPerson = {};
   items.forEach(function (item) {
-    if (!byPerson[item.name]) byPerson[item.name] = [];
-    byPerson[item.name].push(item);
+    // Lowercased so this lines up with KNOWN_PEOPLE's case-insensitive matching below
+    var key = item.name.toLowerCase();
+    if (!byPerson[key]) byPerson[key] = [];
+    byPerson[key].push(item);
   });
   return byPerson;
 }
@@ -296,40 +298,50 @@ function renderItemList(items) {
 
 function renderTodayPeople(todayItems, tomorrowItems) {
   var container = document.getElementById("today-people");
-  if (todayItems.length === 0 && tomorrowItems.length === 0) {
-    container.innerHTML =
-      '<p class="empty">Nothing tagged for today or tomorrow</p>';
-    return;
-  }
-
   var byToday = groupByPerson(todayItems);
   var byTomorrow = groupByPerson(tomorrowItems);
   var names = {};
+  // Everyone in KNOWN_PEOPLE (config.js/config.local.js) always gets a card, even with
+  // nothing tagged today or tomorrow -- otherwise the "Today" widget's line-up silently
+  // shrinks to whoever happens to have an event, which reads as "forgot someone" rather
+  // than "nothing for them today".
+  KNOWN_PEOPLE.forEach(function (n) {
+    names[n.toLowerCase()] = true;
+  });
   Object.keys(byToday).forEach(function (n) {
     names[n] = true;
   });
   Object.keys(byTomorrow).forEach(function (n) {
     names[n] = true;
   });
+  var order = Object.keys(names);
+  if (order.length === 0) {
+    container.innerHTML =
+      '<p class="empty">Nothing tagged for today or tomorrow</p>';
+    return;
+  }
   // Alphabetical, not calendar order -- consistent regardless of the order events
   // happen to appear in the ICS feed.
-  var order = Object.keys(names).sort();
+  order.sort();
 
   container.innerHTML = order
     .map(function (name) {
       // Always rendered, even with no today items for this person -- it still needs to
       // take part in the max-height equalization below, so every card's Tomorrow section
-      // (if any) lines up on the same row regardless of how many today items came before
-      // it in each card.
+      // lines up on the same row regardless of how many today items came before it in
+      // each card.
       var todaySection =
         '<ul class="today-list">' +
-        (byToday[name] ? renderItemList(byToday[name]) : "") +
+        (byToday[name]
+          ? renderItemList(byToday[name])
+          : '<li class="no-items">Nothing today</li>') +
         "</ul>";
-      var tomorrowSection = byTomorrow[name]
-        ? '<div class="tomorrow-section"><div class="tomorrow-label">Tomorrow</div><ul>' +
-          renderItemList(byTomorrow[name]) +
-          "</ul></div>"
-        : "";
+      var tomorrowSection =
+        '<div class="tomorrow-section"><div class="tomorrow-label">Tomorrow</div><ul>' +
+        (byTomorrow[name]
+          ? renderItemList(byTomorrow[name])
+          : '<li class="no-items">Nothing tomorrow</li>') +
+        "</ul></div>";
       return (
         '<div class="person-column"><div class="person-name" style="' +
         personPillStyle(name) +
@@ -456,7 +468,8 @@ function coatAlertText(daily) {
   var wet =
     daily.precipitation_probability_max &&
     daily.precipitation_probability_max[0] >= RAIN_PROBABILITY_THRESHOLD;
-  if (!cold && !wet) return { text: "No coat needed", icon: "&#9989;", needed: false };
+  if (!cold && !wet)
+    return { text: "No coat needed", icon: "&#9989;", needed: false };
   // Umbrella takes priority over snowflake when both apply -- rain is the more
   // immediately obvious reason to grab a coat.
   var icon = wet ? "&#9748;" : "&#10052;";
@@ -583,90 +596,114 @@ setInterval(loadFact, 1000 * 60 * 15);
 
 function escapeHtml(s) {
   return String(s)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
 }
 
 function renderShoppingList(items) {
-  var list = document.getElementById('shopping-items');
+  var list = document.getElementById("shopping-items");
   if (items.length === 0) {
     list.innerHTML = '<li class="empty">Nothing on the list</li>';
     return;
   }
-  list.innerHTML = items.map(function (item) {
-    return '<li><span class="shopping-item-text">' + escapeHtml(item.summary) +
-      '</span><button class="shopping-remove-btn" data-uid="' + escapeHtml(item.uid) +
-      '">&times;</button></li>';
-  }).join('');
+  list.innerHTML = items
+    .map(function (item) {
+      return (
+        '<li><span class="shopping-item-text">' +
+        escapeHtml(item.summary) +
+        '</span><button class="shopping-remove-btn" data-uid="' +
+        escapeHtml(item.uid) +
+        '">&times;</button></li>'
+      );
+    })
+    .join("");
 }
 
 function removeShoppingItem(uid) {
-  fetch('/api/shopping-list?uid=' + encodeURIComponent(uid), { method: 'DELETE' })
+  fetch("/api/shopping-list?uid=" + encodeURIComponent(uid), {
+    method: "DELETE",
+  })
     .then(function (res) {
-      if (!res.ok) throw new Error('HTTP ' + res.status);
+      if (!res.ok) throw new Error("HTTP " + res.status);
       return res.json();
-    }).then(function (data) {
+    })
+    .then(function (data) {
       if (data.error) throw new Error(data.error);
       loadShoppingList();
-    }).catch(function (err) {
-      alert('Could not remove item: ' + err.message);
+    })
+    .catch(function (err) {
+      alert("Could not remove item: " + err.message);
     });
 }
 
 function loadShoppingList() {
-  var list = document.getElementById('shopping-items');
-  fetch('/api/shopping-list', { cache: 'no-store' }).then(function (res) {
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    return res.json();
-  }).then(function (data) {
-    if (data.error) throw new Error(data.error);
-    renderShoppingList(data.items);
-  }).catch(function (err) {
-    list.innerHTML = '<li class="empty">List unavailable (' + err.message + ')</li>';
-  });
+  var list = document.getElementById("shopping-items");
+  fetch("/api/shopping-list", { cache: "no-store" })
+    .then(function (res) {
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      return res.json();
+    })
+    .then(function (data) {
+      if (data.error) throw new Error(data.error);
+      renderShoppingList(data.items);
+    })
+    .catch(function (err) {
+      list.innerHTML =
+        '<li class="empty">List unavailable (' + err.message + ")</li>";
+    });
 }
 
 function addShoppingItem() {
-  var input = document.getElementById('shopping-input');
+  var input = document.getElementById("shopping-input");
   var value = input.value.trim();
   if (!value) return;
   input.disabled = true;
-  fetch('/api/shopping-list', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ item: value })
-  }).then(function (res) {
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    return res.json();
-  }).then(function (data) {
-    if (data.error) throw new Error(data.error);
-    input.value = '';
-    loadShoppingList();
-  }).catch(function (err) {
-    // Rare on a home LAN; a visible alert is simpler than a dedicated error-state UI for
-    // something that should basically never happen in practice.
-    alert('Could not add item: ' + err.message);
-  }).then(function () {
-    input.disabled = false;
-    input.focus();
-  });
+  fetch("/api/shopping-list", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ item: value }),
+  })
+    .then(function (res) {
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      return res.json();
+    })
+    .then(function (data) {
+      if (data.error) throw new Error(data.error);
+      input.value = "";
+      loadShoppingList();
+    })
+    .catch(function (err) {
+      // Rare on a home LAN; a visible alert is simpler than a dedicated error-state UI for
+      // something that should basically never happen in practice.
+      alert("Could not add item: " + err.message);
+    })
+    .then(function () {
+      input.disabled = false;
+      input.focus();
+    });
 }
 
-document.getElementById('shopping-add-btn').addEventListener('click', addShoppingItem);
-document.getElementById('shopping-input').addEventListener('keydown', function (e) {
-  if (e.keyCode === 13) addShoppingItem(); // keyCode, not e.key -- e.key needs Chrome 51+
-});
-document.getElementById('shopping-items').addEventListener('click', function (e) {
-  if (e.target.className === 'shopping-remove-btn') {
-    removeShoppingItem(e.target.getAttribute('data-uid'));
-  }
-});
+document
+  .getElementById("shopping-add-btn")
+  .addEventListener("click", addShoppingItem);
+document
+  .getElementById("shopping-input")
+  .addEventListener("keydown", function (e) {
+    if (e.keyCode === 13) addShoppingItem(); // keyCode, not e.key -- e.key needs Chrome 51+
+  });
+document
+  .getElementById("shopping-items")
+  .addEventListener("click", function (e) {
+    if (e.target.className === "shopping-remove-btn") {
+      removeShoppingItem(e.target.getAttribute("data-uid"));
+    }
+  });
 
 function daysAgoText(days) {
-  if (days === 0) return 'today';
-  if (days === 1) return 'yesterday';
-  return days + ' days ago';
+  if (days === 0) return "today";
+  if (days === 1) return "yesterday";
+  return days + " days ago";
 }
 
 // input_datetime-backed "last done X days ago, tap to reset" pills -- mirrors
@@ -676,29 +713,37 @@ function setupTracker(name, valueId, btnId) {
   var btn = document.getElementById(btnId);
 
   function load() {
-    fetch('/api/' + name, { cache: 'no-store' }).then(function (res) {
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      return res.json();
-    }).then(function (data) {
-      if (data.error) throw new Error(data.error);
-      value.textContent = daysAgoText(data.days_ago);
-    }).catch(function () {
-      value.textContent = '?';
-    });
+    fetch("/api/" + name, { cache: "no-store" })
+      .then(function (res) {
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        return res.json();
+      })
+      .then(function (data) {
+        if (data.error) throw new Error(data.error);
+        value.textContent = daysAgoText(data.days_ago);
+      })
+      .catch(function () {
+        value.textContent = "?";
+      });
   }
 
-  btn.addEventListener('click', function () {
+  btn.addEventListener("click", function () {
     btn.disabled = true;
-    fetch('/api/' + name + '/' + btn.getAttribute('data-action'), { method: 'POST' })
+    fetch("/api/" + name + "/" + btn.getAttribute("data-action"), {
+      method: "POST",
+    })
       .then(function (res) {
-        if (!res.ok) throw new Error('HTTP ' + res.status);
+        if (!res.ok) throw new Error("HTTP " + res.status);
         return res.json();
-      }).then(function (data) {
+      })
+      .then(function (data) {
         if (data.error) throw new Error(data.error);
         load();
-      }).catch(function (err) {
-        alert('Could not log ' + name + ': ' + err.message);
-      }).then(function () {
+      })
+      .catch(function (err) {
+        alert("Could not log " + name + ": " + err.message);
+      })
+      .then(function () {
         btn.disabled = false;
       });
   });
@@ -714,12 +759,12 @@ function setupTracker(name, valueId, btnId) {
 // emoji render in fixed platform green/red, clashing with the muted glass theme) -- same
 // "plain Unicode glyph over color emoji" swap as the club icon elsewhere in this file.
 // These inherit .status-fed/.status-missed's text color instead of fighting it.
-var DOG_FED_ICONS = { pending: '&ndash;', fed: '&#10003;', missed: '&#10007;' };
+var DOG_FED_ICONS = { pending: "&ndash;", fed: "&#10003;", missed: "&#10007;" };
 
 function renderDogFedSlot(id, label, status) {
   var slot = document.getElementById(id);
-  slot.className = 'dog-fed-slot status-' + status;
-  slot.innerHTML = label + ' ' + (DOG_FED_ICONS[status] || '?');
+  slot.className = "dog-fed-slot status-" + status;
+  slot.innerHTML = label + " " + (DOG_FED_ICONS[status] || "?");
 }
 
 // Self-rescheduling rather than a fixed setInterval, so the poll rate can change: fast
@@ -731,28 +776,34 @@ var DOG_FED_SLOW_POLL_MS = 1000 * 60 * 15;
 // Hides the pill until dashboard.env has HA_DOG_FED_ENTITY_ID configured, so this is a
 // no-op until then.
 function loadDogFed() {
-  var pill = document.getElementById('dog-fed-pill');
-  fetch('/api/dog-fed', { cache: 'no-store' }).then(function (res) {
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    return res.json();
-  }).then(function (data) {
-    if (!data.configured) {
-      pill.className = 'status-pill';
+  var pill = document.getElementById("dog-fed-pill");
+  fetch("/api/dog-fed", { cache: "no-store" })
+    .then(function (res) {
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      return res.json();
+    })
+    .then(function (data) {
+      if (!data.configured) {
+        pill.className = "status-pill";
+        setTimeout(loadDogFed, DOG_FED_SLOW_POLL_MS);
+        return;
+      }
+      pill.className = "status-pill dog-fed-pill-visible";
+      renderDogFedSlot("dog-fed-morning", "AM", data.morning);
+      renderDogFedSlot("dog-fed-afternoon", "PM", data.afternoon);
+      setTimeout(
+        loadDogFed,
+        data.in_window ? DOG_FED_FAST_POLL_MS : DOG_FED_SLOW_POLL_MS,
+      );
+    })
+    .catch(function () {
+      pill.className = "status-pill";
       setTimeout(loadDogFed, DOG_FED_SLOW_POLL_MS);
-      return;
-    }
-    pill.className = 'status-pill dog-fed-pill-visible';
-    renderDogFedSlot('dog-fed-morning', 'AM', data.morning);
-    renderDogFedSlot('dog-fed-afternoon', 'PM', data.afternoon);
-    setTimeout(loadDogFed, data.in_window ? DOG_FED_FAST_POLL_MS : DOG_FED_SLOW_POLL_MS);
-  }).catch(function () {
-    pill.className = 'status-pill';
-    setTimeout(loadDogFed, DOG_FED_SLOW_POLL_MS);
-  });
+    });
 }
 
-setupTracker('litter', 'litter-value', 'litter-scoop-btn');
-setupTracker('fish', 'fish-value', 'fish-fed-btn');
+setupTracker("litter", "litter-value", "litter-scoop-btn");
+setupTracker("fish", "fish-value", "fish-fed-btn");
 
 loadDogFed();
 
@@ -760,59 +811,69 @@ loadDogFed();
 // first (it otherwise keeps overriding manual brightness) then sets brightness; "Auto"
 // hands control back to Adaptive Lighting. The slider only posts to HA on release
 // ('change', not 'input') so dragging doesn't spam a service call per pixel moved.
-var kitchenSlider = document.getElementById('kitchen-brightness');
-var kitchenAutoBtn = document.getElementById('kitchen-auto-btn');
+var kitchenSlider = document.getElementById("kitchen-brightness");
+var kitchenAutoBtn = document.getElementById("kitchen-auto-btn");
 
 function loadKitchenLight() {
-  fetch('/api/kitchen-light', { cache: 'no-store' }).then(function (res) {
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    return res.json();
-  }).then(function (data) {
-    if (data.error) throw new Error(data.error);
-    kitchenSlider.value = data.brightness_pct;
-    kitchenAutoBtn.textContent = data.auto ? 'Auto: ON' : 'Auto: OFF';
-  }).catch(function () {
-    kitchenAutoBtn.textContent = 'Auto: ?';
-  });
+  fetch("/api/kitchen-light", { cache: "no-store" })
+    .then(function (res) {
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      return res.json();
+    })
+    .then(function (data) {
+      if (data.error) throw new Error(data.error);
+      kitchenSlider.value = data.brightness_pct;
+      kitchenAutoBtn.textContent = data.auto ? "Auto: ON" : "Auto: OFF";
+    })
+    .catch(function () {
+      kitchenAutoBtn.textContent = "Auto: ?";
+    });
 }
 
-kitchenSlider.addEventListener('change', function () {
-  fetch('/api/kitchen-light/brightness', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ brightness_pct: parseInt(kitchenSlider.value, 10) })
-  }).then(function (res) {
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    return res.json();
-  }).then(function (data) {
-    if (data.error) throw new Error(data.error);
-    // No re-fetch here -- the slider already shows exactly what we just told the light
-    // to do. Re-reading immediately races the group light's own state update (it
-    // aggregates ~24 individual Hue lights, confirmed to lag the command by up to ~1s),
-    // which was snapping the slider back to the stale pre-change brightness.
-    kitchenAutoBtn.textContent = 'Auto: OFF';
-  }).catch(function (err) {
-    alert('Could not set brightness: ' + err.message);
-  });
+kitchenSlider.addEventListener("change", function () {
+  fetch("/api/kitchen-light/brightness", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ brightness_pct: parseInt(kitchenSlider.value, 10) }),
+  })
+    .then(function (res) {
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      return res.json();
+    })
+    .then(function (data) {
+      if (data.error) throw new Error(data.error);
+      // No re-fetch here -- the slider already shows exactly what we just told the light
+      // to do. Re-reading immediately races the group light's own state update (it
+      // aggregates ~24 individual Hue lights, confirmed to lag the command by up to ~1s),
+      // which was snapping the slider back to the stale pre-change brightness.
+      kitchenAutoBtn.textContent = "Auto: OFF";
+    })
+    .catch(function (err) {
+      alert("Could not set brightness: " + err.message);
+    });
 });
 
-kitchenAutoBtn.addEventListener('click', function () {
+kitchenAutoBtn.addEventListener("click", function () {
   kitchenAutoBtn.disabled = true;
-  fetch('/api/kitchen-light/auto', { method: 'POST' }).then(function (res) {
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    return res.json();
-  }).then(function (data) {
-    if (data.error) throw new Error(data.error);
-    kitchenAutoBtn.textContent = 'Auto: ON';
-    // Adaptive Lighting doesn't apply its own brightness the instant the switch turns
-    // back on -- confirmed empirically, it takes a couple of seconds to actually push a
-    // value to the light. Fetching immediately just re-reads the old manual brightness.
-    setTimeout(loadKitchenLight, 2500);
-  }).catch(function (err) {
-    alert('Could not re-enable auto: ' + err.message);
-  }).then(function () {
-    kitchenAutoBtn.disabled = false;
-  });
+  fetch("/api/kitchen-light/auto", { method: "POST" })
+    .then(function (res) {
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      return res.json();
+    })
+    .then(function (data) {
+      if (data.error) throw new Error(data.error);
+      kitchenAutoBtn.textContent = "Auto: ON";
+      // Adaptive Lighting doesn't apply its own brightness the instant the switch turns
+      // back on -- confirmed empirically, it takes a couple of seconds to actually push a
+      // value to the light. Fetching immediately just re-reads the old manual brightness.
+      setTimeout(loadKitchenLight, 2500);
+    })
+    .catch(function (err) {
+      alert("Could not re-enable auto: " + err.message);
+    })
+    .then(function () {
+      kitchenAutoBtn.disabled = false;
+    });
 });
 
 loadKitchenLight();
