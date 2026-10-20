@@ -12,8 +12,16 @@
 
   --surface-bg: rgba(255, 255, 255, 0.06);
   --surface-border: rgba(255, 255, 255, 0.12);
-  --card-gradient: linear-gradient(165deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.02));
-  --action-gradient: linear-gradient(135deg, rgba(170, 110, 255, 0.35), rgba(170, 110, 255, 0.15));
+  --card-gradient: linear-gradient(
+    165deg,
+    rgba(255, 255, 255, 0.07),
+    rgba(255, 255, 255, 0.02)
+  );
+  --action-gradient: linear-gradient(
+    135deg,
+    rgba(170, 110, 255, 0.35),
+    rgba(170, 110, 255, 0.15)
+  );
   --action-border: rgba(170, 110, 255, 0.5);
   --action-text: #e8d9ff;
 
@@ -21,7 +29,7 @@
   --radius-card: 28px;
   --radius-input: 12px;
 
-  --shadow-drop: 0 20px 50px rgba(0, 0, 0, 0.45);
+  --shadow-drop: 0 8px 24px rgba(0, 0, 0, 0.35);
 
   --gap-card: 32px;
   --gap-section: 24px;
@@ -241,7 +249,11 @@ header {
   width: 24px;
   height: 24px;
   border-radius: 50%;
-  background: linear-gradient(135deg, rgba(255, 200, 110, 1), rgba(255, 170, 80, 0.9));
+  background: linear-gradient(
+    135deg,
+    rgba(255, 200, 110, 1),
+    rgba(255, 170, 80, 0.9)
+  );
   border: 2px solid rgba(255, 255, 255, 0.5);
   transition: transform var(--transition-fast);
 }
@@ -302,9 +314,6 @@ header {
   gap: var(--gap-card);
 }
 
-/* No border -- depth from a soft colored glow (each widget variant below) plus a plain
-   dark drop shadow for lift, plus backdrop-filter blur for genuine glass depth now that
-   this WebView supports it. */
 .widget {
   /* 373px: row1 has 3 widgets (weather/route/shopping). Content box is 1184px
      (1280 - 48px padding each side), minus two 32px gaps: (1184 - 64) / 3 = 373.33,
@@ -316,21 +325,30 @@ header {
   width: 373px;
   background: var(--card-gradient);
   backdrop-filter: blur(16px);
+  border: 1px solid var(--surface-border);
   border-radius: var(--radius-card);
   padding: 22px 32px;
-  box-shadow: var(--shadow-drop), 0 0 60px -20px rgba(90, 140, 255, 0.5);
+  box-shadow:
+    var(--shadow-drop),
+    0 2px 14px -6px rgba(90, 140, 255, 0.22);
 }
 
 .widget-shopping {
-  box-shadow: var(--shadow-drop), 0 0 60px -20px rgba(170, 110, 255, 0.5);
+  box-shadow:
+    var(--shadow-drop),
+    0 2px 14px -6px rgba(170, 110, 255, 0.22);
 }
 
 .widget-weather {
-  box-shadow: var(--shadow-drop), 0 0 60px -20px rgba(255, 170, 80, 0.55);
+  box-shadow:
+    var(--shadow-drop),
+    0 2px 14px -6px rgba(255, 170, 80, 0.22);
 }
 
 .widget-route {
-  box-shadow: var(--shadow-drop), 0 0 60px -20px rgba(80, 180, 220, 0.5);
+  box-shadow:
+    var(--shadow-drop),
+    0 2px 14px -6px rgba(80, 180, 220, 0.22);
 }
 
 .widget h2 {
@@ -464,7 +482,11 @@ header {
   height: 56px;
   flex-shrink: 0;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(255, 180, 90, 0.22), rgba(255, 180, 90, 0.04) 70%);
+  background: radial-gradient(
+    circle,
+    rgba(255, 180, 90, 0.22),
+    rgba(255, 180, 90, 0.04) 70%
+  );
   display: flex;
   align-items: center;
   justify-content: center;
@@ -511,7 +533,11 @@ header {
 }
 
 #rain-alert.rain-urgent {
-  background: linear-gradient(135deg, rgba(90, 160, 255, 0.28), rgba(90, 160, 255, 0.1));
+  background: linear-gradient(
+    135deg,
+    rgba(90, 160, 255, 0.28),
+    rgba(90, 160, 255, 0.1)
+  );
   color: #a9d4ff;
 }
 
@@ -522,7 +548,11 @@ header {
 }
 
 #coat-alert.coat-needed {
-  background: linear-gradient(135deg, rgba(255, 170, 80, 0.28), rgba(255, 170, 80, 0.1));
+  background: linear-gradient(
+    135deg,
+    rgba(255, 170, 80, 0.28),
+    rgba(255, 170, 80, 0.1)
+  );
   color: #ffd1a3;
 }
 
@@ -563,7 +593,11 @@ header {
 }
 
 #route-status-alert.delayed {
-  background: linear-gradient(135deg, rgba(255, 170, 80, 0.28), rgba(255, 170, 80, 0.1));
+  background: linear-gradient(
+    135deg,
+    rgba(255, 170, 80, 0.28),
+    rgba(255, 170, 80, 0.1)
+  );
   color: #ffd1a3;
 }
 
@@ -591,7 +625,11 @@ header {
   gap: var(--gap-section);
 }
 
+/* .widget's own width:373px is tuned for row1's 32px gaps -- this row uses a 24px gap
+   (--gap-section) instead, so width stays flex:1 here rather than inheriting that fixed
+   value. */
 .person-column {
+  width: auto;
   flex: 1;
   min-width: 0; /* same flex-item shrink gotcha as #shopping-input above -- without it a
                    long item line can keep the card from shrinking to its equal share and
@@ -599,11 +637,10 @@ header {
   display: flex;
   flex-direction: column;
   align-items: center;
-  background: var(--card-gradient);
-  backdrop-filter: blur(16px);
-  border-radius: var(--radius-card);
   padding: 20px;
-  box-shadow: var(--shadow-drop), 0 0 60px -20px rgba(80, 220, 170, 0.5);
+  box-shadow:
+    var(--shadow-drop),
+    0 2px 14px -6px rgba(80, 220, 170, 0.22);
 }
 
 .person-column .person-name {

@@ -276,7 +276,7 @@ function renderTodayPeople(todayItems, tomorrowItems) {
       const tomorrowSection = `<div class="tomorrow-section"><div class="tomorrow-label">Tomorrow</div><ul>${
         byTomorrow[name] ? renderItemList(byTomorrow[name]) : '<li class="no-items">Nothing tomorrow</li>'
       }</ul></div>`;
-      return `<div class="person-column"><div class="person-name" style="${personPillStyle(name)}">${capitalize(name)}</div>${todaySection}${tomorrowSection}</div>`;
+      return `<div class="widget person-column"><div class="person-name" style="${personPillStyle(name)}">${capitalize(name)}</div>${todaySection}${tomorrowSection}</div>`;
     })
     .join("");
 
