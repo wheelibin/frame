@@ -330,25 +330,25 @@ header {
   padding: 22px 32px;
   box-shadow:
     var(--shadow-drop),
-    0 2px 14px -6px rgba(90, 140, 255, 0.22);
+    0 3px 20px -6px rgba(90, 140, 255, 0.32);
 }
 
 .widget-shopping {
   box-shadow:
     var(--shadow-drop),
-    0 2px 14px -6px rgba(170, 110, 255, 0.22);
+    0 3px 20px -6px rgba(170, 110, 255, 0.32);
 }
 
 .widget-weather {
   box-shadow:
     var(--shadow-drop),
-    0 2px 14px -6px rgba(255, 170, 80, 0.22);
+    0 3px 20px -6px rgba(255, 170, 80, 0.32);
 }
 
 .widget-route {
   box-shadow:
     var(--shadow-drop),
-    0 2px 14px -6px rgba(80, 180, 220, 0.22);
+    0 3px 20px -6px rgba(80, 180, 220, 0.32);
 }
 
 .widget h2 {
@@ -634,7 +634,7 @@ header {
   padding: 20px;
   box-shadow:
     var(--shadow-drop),
-    0 2px 14px -6px rgba(80, 220, 170, 0.22);
+    0 3px 20px -6px rgba(80, 220, 170, 0.32);
 }
 
 .person-column .person-name {
