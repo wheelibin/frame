@@ -629,20 +629,31 @@ function renderRoute(data) {
   }
 }
 
+// Self-rescheduling rather than a fixed setInterval, same pattern as loadDogFed below --
+// fetch-route.sh embeds fastWindow (mirroring its own ROUTE_FAST_WINDOW check) so this can
+// poll at roughly the same cadence the server is actually refreshing at (every 90s during
+// the configured rush-hour window) instead of a flat 15 minutes that lags live traffic
+// conditions exactly when they're changing fastest.
+const ROUTE_FAST_POLL_MS = 1000 * 90;
+const ROUTE_SLOW_POLL_MS = 1000 * 60 * 15;
+
 async function loadRoute() {
+  let fastWindow = false;
   try {
     const res = await fetch("route.json", { cache: "no-store" });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    renderRoute(await res.json());
+    const data = await res.json();
+    fastWindow = data.fastWindow ?? false;
+    renderRoute(data);
   } catch (err) {
     document.getElementById("route").innerHTML =
       `<p class="empty">Route unavailable (${err.message})</p>`;
     document.getElementById("route-status-alert").innerHTML = "";
   }
+  setTimeout(loadRoute, fastWindow ? ROUTE_FAST_POLL_MS : ROUTE_SLOW_POLL_MS);
 }
 
 loadRoute();
-setInterval(loadRoute, 1000 * 60 * 15);
 
 // --- Shopping list: live reads/writes through server.js's /api/shopping-list relay
 // to Home Assistant's todo integration -- not a cron-fetched snapshot like calendar/

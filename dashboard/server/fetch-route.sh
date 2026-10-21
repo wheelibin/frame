@@ -38,11 +38,26 @@ sections=""
 [ "$include_incidents" = "true" ] && sections="&sectionType=traffic"
 route=$(curl -sf "https://api.tomtom.com/routing/1/calculateRoute/${origin}:${destination}/json?key=${api_key}&traffic=true&computeTravelTimeFor=all&routeRepresentation=summaryOnly${sections}")
 
+# Same window check as entrypoint.sh's loop uses to pick its own sleep interval -- mirrored
+# here (not read back from there) so the browser can see it too: it's embedded below as
+# fastWindow, letting app.js poll at the same cadence the server is actually refreshing at,
+# instead of its own flat 15-minute interval regardless of how fast conditions are changing.
+window=$(grep '^ROUTE_FAST_WINDOW=' dashboard.env | cut -d= -f2-)
+fast_window=false
+if [ -n "$window" ]; then
+  start="${window%-*}"
+  end="${window#*-}"
+  now=$(date +%H:%M)
+  if [[ "$now" > "$start" && "$now" < "$end" ]]; then
+    fast_window=true
+  fi
+fi
+
 # JSON-encoded via node, not hand-quoted -- ROUTE_LABEL is free text (an apostrophe like
 # "Mum's" would break naive "$label" interpolation into the JSON string below). node, not
 # python3/jq: this image is node:20-slim with neither of those installed, and node's
 # already a hard requirement here regardless.
 label_json=$(node -e 'process.stdout.write(JSON.stringify(process.argv[1]))' "$label")
 
-printf '{"label":%s,"route":%s}' "$label_json" "$route" > ../ui/route.json.tmp
+printf '{"label":%s,"fastWindow":%s,"route":%s}' "$label_json" "$fast_window" "$route" > ../ui/route.json.tmp
 mv ../ui/route.json.tmp ../ui/route.json
