@@ -178,7 +178,7 @@ these services directly.
 Sits in the header's middle gap (`justify-content: space-between` between the clock and
 the status pills left it empty). No API key, no params -- but unlike calendar/weather/route,
 don't just add this to the same cron/loop as everything else: the `/facts/random` endpoint
-returns a *different* fact on every call, so it needs its own once-a-day (midnight) schedule
+returns a _different_ fact on every call, so it needs its own once-a-day (midnight) schedule
 to stay a stable "fact of the day" rather than changing every poll. `entrypoint.sh` already
 does this with a dedicated loop that sleeps until the next midnight between fetches;
 `app.js` just renders whatever's currently in `fact.json`, same same-origin-fetch pattern
@@ -204,7 +204,15 @@ ROUTE_LABEL=Work                              # shown as "Route to <label>"
 ROUTE_INCLUDE_INCIDENTS=true                  # optional -- omit/false to leave incidents out of the status pill entirely
 ROUTE_FAST_WINDOW=06:30-08:00                 # optional -- "HH:MM-HH:MM", same format as HA_DOG_FED_MORNING_WINDOW
 ROUTE_FAST_INTERVAL_SECONDS=120               # required if ROUTE_FAST_WINDOW is set
+ROUTE_PAD_PERCENT=10                          # optional -- scales the displayed live minutes by (1 + this/100)
 ```
+
+`ROUTE_PAD_PERCENT` only scales the headline live-minutes number, not "Usually N min" or the
+delay pill -- those are TomTom's own internally-consistent live-vs-historic/live-vs-free-flow
+comparisons, and padding them too would just double-count the same correction. Added after
+noticing TomTom's live ETA reading consistently lower than Google Maps for this specific
+commute (no general TomTom-vs-Google bias is documented anywhere; this is a per-route fudge
+factor, tune it against your own observations, not a universal constant).
 
 TomTom over Google Maps Platform: Google's Routes API gives a traffic-aware ETA fine, but
 has no structured "incidents on this route" data for developers (the consumer Maps app

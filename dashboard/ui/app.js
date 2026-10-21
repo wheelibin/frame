@@ -586,7 +586,13 @@ function renderRoute(data) {
     return;
   }
 
-  const minutes = Math.round(summary.travelTimeInSeconds / 60);
+  // padPercent (ROUTE_PAD_PERCENT in dashboard.env) corrects TomTom's observed tendency to
+  // read lower than Google Maps for this specific commute -- only the live headline number,
+  // not "usually" or the delay pill, since those are TomTom's own internally-consistent
+  // live-vs-historic/live-vs-free-flow comparisons and aren't what's being corrected.
+  const minutes = Math.round(
+    (summary.travelTimeInSeconds * (1 + (data.padPercent ?? 0) / 100)) / 60,
+  );
   // historicTrafficTravelTimeInSeconds, not noTrafficTravelTimeInSeconds -- the latter is
   // TomTom's zero-traffic best case (an empty road), not what "usually" means. The
   // historic figure is based on actual traffic patterns for this route/time, which is

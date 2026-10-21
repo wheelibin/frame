@@ -265,10 +265,10 @@ _from here on_.
       Settings or any other app. Learned this by getting stuck in Settings after changing
       the timezone, with no physical way out. Fixed with:
       `sh
-    adb -d shell settings put secure enabled_accessibility_services com.wesbos.homehq/.NavigationService
-    adb -d shell settings put secure accessibility_enabled 1
-    adb -d shell pm grant com.wesbos.homehq android.permission.WRITE_SECURE_SETTINGS
-    `
+  adb -d shell settings put secure enabled_accessibility_services com.wesbos.homehq/.NavigationService
+  adb -d shell settings put secure accessibility_enabled 1
+  adb -d shell pm grant com.wesbos.homehq android.permission.WRITE_SECURE_SETTINGS
+  `
       The last line matters on its own: per the kiosk README, this firmware drops the
       service from the enabled list after every `adb install -r` or force-stop of Home HQ;
       the grant lets Home HQ silently re-enable itself each time it starts. Gives small

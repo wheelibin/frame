@@ -13,6 +13,8 @@ destination=$(grep '^ROUTE_DESTINATION=' dashboard.env | cut -d= -f2-)
 label=$(grep '^ROUTE_LABEL=' dashboard.env | cut -d= -f2-)
 api_key=$(grep '^TOMTOM_API_KEY=' dashboard.env | cut -d= -f2-)
 include_incidents=$(grep '^ROUTE_INCLUDE_INCIDENTS=' dashboard.env | cut -d= -f2-)
+pad_percent=$(grep '^ROUTE_PAD_PERCENT=' dashboard.env | cut -d= -f2-)
+[ -z "$pad_percent" ] && pad_percent=0
 
 if [ -z "$origin" ] || [ -z "$destination" ] || [ -z "$api_key" ]; then
   echo "ROUTE_ORIGIN/ROUTE_DESTINATION/TOMTOM_API_KEY not set in dashboard.env -- skipping" >&2
@@ -59,5 +61,5 @@ fi
 # already a hard requirement here regardless.
 label_json=$(node -e 'process.stdout.write(JSON.stringify(process.argv[1]))' "$label")
 
-printf '{"label":%s,"fastWindow":%s,"route":%s}' "$label_json" "$fast_window" "$route" > ../ui/route.json.tmp
+printf '{"label":%s,"fastWindow":%s,"padPercent":%s,"route":%s}' "$label_json" "$fast_window" "$pad_percent" "$route" > ../ui/route.json.tmp
 mv ../ui/route.json.tmp ../ui/route.json
