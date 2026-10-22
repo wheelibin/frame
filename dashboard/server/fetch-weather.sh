@@ -24,12 +24,15 @@ base="https://api.open-meteo.com/v1/forecast?latitude=$lat&longitude=$lon&timezo
 # back the same as daily if the combined request errors.
 full="$base&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max&forecast_days=1&minutely_15=precipitation,precipitation_probability&forecast_minutely_15=16"
 
-if ! curl -sf "$full" -o ../ui/weather.json.tmp; then
+if ! curl -sf --retry 3 --retry-all-errors "$full" -o ../ui/weather.json.tmp; then
   echo "fetch failed" >&2
   exit 1
 fi
 if grep -q '"error":true' ../ui/weather.json.tmp; then
   echo "daily/minutely forecast unavailable upstream, falling back to current-only" >&2
-  curl -sf "$base&current=temperature_2m,weather_code" -o ../ui/weather.json.tmp
+  if ! curl -sf --retry 3 --retry-all-errors "$base&current=temperature_2m,weather_code" -o ../ui/weather.json.tmp; then
+    echo "fetch failed" >&2
+    exit 1
+  fi
 fi
 mv ../ui/weather.json.tmp ../ui/weather.json

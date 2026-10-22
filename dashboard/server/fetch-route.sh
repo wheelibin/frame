@@ -38,7 +38,10 @@ fi
 # doing the route-aware filtering.
 sections=""
 [ "$include_incidents" = "true" ] && sections="&sectionType=traffic"
-route=$(curl -sf "https://api.tomtom.com/routing/1/calculateRoute/${origin}:${destination}/json?key=${api_key}&traffic=true&computeTravelTimeFor=all&routeRepresentation=summaryOnly${sections}")
+if ! route=$(curl -sf --retry 3 --retry-all-errors "https://api.tomtom.com/routing/1/calculateRoute/${origin}:${destination}/json?key=${api_key}&traffic=true&computeTravelTimeFor=all&routeRepresentation=summaryOnly${sections}"); then
+  echo "fetch failed" >&2
+  exit 1
+fi
 
 # Same window check as entrypoint.sh's loop uses to pick its own sleep interval -- mirrored
 # here (not read back from there) so the browser can see it too: it's embedded below as

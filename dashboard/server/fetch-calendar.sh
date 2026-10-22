@@ -9,5 +9,8 @@ cd "$(dirname "$0")"
 # as shell syntax (`&` backgrounds a command) rather than literal characters. grep+cut
 # treats the whole line as plain text, so nothing in the value gets interpreted.
 url=$(grep '^CALENDAR_URL=' dashboard.env | cut -d= -f2-)
-curl -sf "$url" -o ../ui/calendar.ics.tmp
+if ! curl -sf --retry 3 --retry-all-errors "$url" -o ../ui/calendar.ics.tmp; then
+  echo "fetch failed" >&2
+  exit 1
+fi
 mv ../ui/calendar.ics.tmp ../ui/calendar.ics

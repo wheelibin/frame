@@ -6,5 +6,12 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
-curl -sf "https://uselessfacts.jsph.pl/api/v2/facts/random" -o ../ui/fact.json.tmp
+# --retry-all-errors: this only runs once a day (see entrypoint.sh's midnight loop), so a
+# single transient failure here would otherwise leave fact.json stale for a full extra
+# day with no second chance. curl's own backoff (1s/2s/4s) covers that, not a hand-rolled
+# retry loop.
+if ! curl -sf --retry 3 --retry-all-errors "https://uselessfacts.jsph.pl/api/v2/facts/random" -o ../ui/fact.json.tmp; then
+  echo "fetch failed" >&2
+  exit 1
+fi
 mv ../ui/fact.json.tmp ../ui/fact.json
